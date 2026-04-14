@@ -109,5 +109,5 @@ def load(filename='triangularizer.pt', n=3):
 
 if __name__ == "__main__":
     N = 3
-    model = train(n=N, epochs=15000)
+    model = train(n=N, epochs=12345)
     save(model)
