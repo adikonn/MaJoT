@@ -1,0 +1,61 @@
+name: Model Evaluation
+
+# Запускаем workflow при каждом pull request в ветку main
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    
+    # Необходимые права для добавления комментария в PR
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Укажи нужную версию Python
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Сначала ставим легкую CPU-версию torch:
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          # Затем остальные зависимости:
+          pip install -r requirements.txt
+      - name: Run model evaluation
+        run: |
+          # Запускаем скрипт оценки модели и сохраняем вывод в markdown файл
+          python evaluate.py > metrics.md
+          
+          # Также добавляем метрики в GitHub Step Summary (чтобы они отображались на странице самого Action)
+          echo "### Результаты оценки модели 📊" >> $GITHUB_STEP_SUMMARY
+          cat metrics.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            // Читаем файл с метриками
+            const metrics = fs.readFileSync('metrics.md', 'utf8');
+            
+            // Формируем текст комментария
+            const commentBody = `### Результаты оценки модели 📊\n\n${metrics}`;
+            
+            // Отправляем комментарий в Pull Request
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            })
