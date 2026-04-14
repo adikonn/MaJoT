@@ -28,37 +28,40 @@ def create_dataset(n_joint=100, n_random=150, n_size=3, seed=42):
 
     data_A = []
     data_B = []
-
+    labels =[]
     for _ in range(n_joint):
         A, B = generate_jointly_triangularizable_pair(n=n_size)
         data_A.append(A)
         data_B.append(B)
+        labels.append(1)
 
     for _ in range(n_random):
         A, B = generate_random_pair(n=n_size)
         data_A.append(A)
         data_B.append(B)
+        labels.append(0)
 
     data_A = np.array(data_A)
     data_B = np.array(data_B)
+    labels = np.array(labels)
 
-    indices = np.arange(len(data_A))
+    indices = np.arange(len(labels))
     np.random.shuffle(indices)
 
     data_A = data_A[indices]
     data_B = data_B[indices]
 
-    return data_A, data_B
+    return data_A, data_B, labels
 
 
 if __name__ == "__main__":
     print("Генерация датасета...")
-    X_A, X_B = create_dataset(n_joint=100, n_random=150, n_size=3)
+    X_A, X_B, labels = create_dataset(n_joint=300, n_random=300, n_size=3)
 
     print("\nРазмеры полученных тензоров:")
     print(f"Матрицы A (X_A): {X_A.shape}")  # (250, 3, 3)
     print(f"Матрицы B (X_B): {X_B.shape}")  # (250, 3, 3)
 
     filename = "dataset.npz"
-    np.savez(filename, A=X_A, B=X_B)
+    np.savez(filename, A=X_A, B=X_B, y=labels)
     print(f"\nДатасет успешно сохранен в файл: {filename}")
