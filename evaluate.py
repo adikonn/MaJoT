@@ -1,5 +1,7 @@
 import numpy as np
-import joblib
+import torch
+from train import load, inference
+
 
 # Функция для подсчета нашей метрики (сам придумал почти)
 def calc_lower_diag_metric(matrix: np.ndarray) -> float:
@@ -8,20 +10,22 @@ def calc_lower_diag_metric(matrix: np.ndarray) -> float:
 
 
 def main():
-    model = joblib.load('model.joblib')
+    model = load()
     data = np.load("dataset.npz")
     total_metric = 0
     for i in range(len(data['A'])):
-        A = data['A'][i]
-        B = data['B'][i]
+        A = torch.tensor(data['A'][i], dtype=torch.float32)
+        B = torch.tensor(data['B'][i], dtype=torch.float32)
 
-        T = model.predict(A, B)
+        T = inference(model, A, B)
 
-        M_A = T.T @ A @ T
-        M_B = T.T @ B @ T
+        M_A = (T.T @ A @ T).detach().cpu().numpy()
+        M_B = (T.T @ B @ T).detach().cpu().numpy()
 
         metric_A = calc_lower_diag_metric(M_A)
         metric_B = calc_lower_diag_metric(M_B)
         total_metric += (metric_A + metric_B)
 
-    print(f"Your Score: {total_metric:.4f}")
+    print(f"Your Score: {((1/len(data['A']))*total_metric):.4f}")
+if __name__ == "__main__":
+    main()
