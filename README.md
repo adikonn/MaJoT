@@ -38,6 +38,10 @@ $$ B' = T^TBT $$
 | ⚙️ **Подвысоцкий Константин**| *роль* | [@Samibaduk](#) |
 | 📈 **Тепляков Роман** | *роль* | [@Romandzella](#) |
 
+<a href="https://github.com/adikonn/MaJoT/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=adikonn/MaJoT" />
+</a>
+
 ---
 <div align="center">
   <i>Сделано с ❤️ командой ЧЕМПИОНЫ 🏆🏆🏆</i>
