@@ -115,8 +115,8 @@ def main():
         f"| Из них строго триангуляризуемых | `{triang_count}` |\n"
         f"| **Итоговая ошибка (General Score)** | **`{avg_total_score:.6f}`** |\n"
         f"| **Ошибка на трианг. матрицах (Triang Score)** | **`{avg_triang_score:.6f}`** |\n"
-        f"| **Мин. ошибка на трианг. матрицах (Triang Score)** | **`{min_triang_score:.6f}`** |\n"
-        f"| **Макс. ошибка на трианг. матрицах (Triang Score)** | **`{max_triang_score:.6f}`** |\n\n"
+        f"| **Мин. ошибка на трианг. матрицах** | **`{min_triang_score:.6f}`** |\n"
+        f"| **Макс. ошибка на трианг. матрицах** | **`{max_triang_score:.6f}`** |\n\n"
     )
 
     # Сохраняем в файл metrics.md для бота
