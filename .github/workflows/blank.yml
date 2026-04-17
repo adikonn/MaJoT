@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # Сначала ставим легкую CPU-версию torch:
-          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install torch torchvision tqdm --index-url https://download.pytorch.org/whl/cpu
           # Затем остальные зависимости:
           pip install -r requirements.txt
       - name: Run model evaluation
