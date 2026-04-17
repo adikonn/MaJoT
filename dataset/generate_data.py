@@ -62,6 +62,6 @@ if __name__ == "__main__":
     print(f"Матрицы A (X_A): {X_A.shape}")  # (250, 3, 3)
     print(f"Матрицы B (X_B): {X_B.shape}")  # (250, 3, 3)
 
-    filename = "dataset/dataset.npz"
+    filename = "dataset.npz"
     np.savez(filename, A=X_A, B=X_B, y=labels)
     print(f"\nДатасет успешно сохранен в файл: {filename}")

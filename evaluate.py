@@ -4,7 +4,7 @@ import sys
 import os
 
 try:
-    from model import TriangularizerModel
+    from model.model import TriangularizerModel
 except ImportError:
     print("❌ ОШИБКА: Не найден файл model.py или класс TriangularizerModel")
     sys.exit(1)
