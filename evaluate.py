@@ -1,7 +1,8 @@
-import torch
-import numpy as np
-import sys
 import os
+import sys
+
+import numpy as np
+import torch
 
 try:
     from model.model import TriangularizerModel
@@ -10,10 +11,15 @@ except ImportError:
     sys.exit(1)
 
 
-def calc_lower_diag_metric(M: torch.Tensor) -> float:
-    """Считает среднюю сумму абсолютных значений под главной диагональю для батча."""
+def calc_lower_diag_metric_batch(M: torch.Tensor) -> torch.Tensor:
+    """
+    Считает сумму абсолютных значений под главной диагональю
+    ДЛЯ КАЖДОЙ матрицы в батче отдельно.
+    Возвращает 1D тензор размерности (Batch,).
+    """
     lower_triangular = torch.tril(M, diagonal=-1)
-    return float(torch.abs(lower_triangular).sum(dim=(1, 2)).mean().item())
+    # Суммируем по строкам и столбцам (dim 1 и 2), оставляя размерность батча
+    return torch.abs(lower_triangular).sum(dim=(1, 2))
 
 
 def main():
@@ -24,6 +30,8 @@ def main():
 
     data = np.load(dataset_path)
     A_data, B_data = data['A'], data['B']
+
+    y_data = data['y']
     n_samples, n_size, _ = A_data.shape
 
     model = TriangularizerModel(n=n_size)
@@ -66,20 +74,46 @@ def main():
         A_trans = T_inv @ A_input @ T_pred
         B_trans = T_inv @ B_input @ T_pred
 
-        score = calc_lower_diag_metric(A_trans) + calc_lower_diag_metric(B_trans)
+        scores_A = calc_lower_diag_metric_batch(A_trans)
+        scores_B = calc_lower_diag_metric_batch(B_trans)
+        total_scores = scores_A + scores_B
 
-    print(f"\nTEST_SCORE={score:.6f}\n")
+    y_tensor = torch.tensor(y_data, dtype=torch.int32)
+
+    avg_total_score = total_scores.mean().item()
+
+    triang_mask = (y_tensor == 1)
+    triang_count = triang_mask.sum().item()
+    if triang_count > 0:
+        avg_triang_score = total_scores[triang_mask].mean().item()
+        min_triang_score = total_scores[triang_mask].min().item()
+        max_triang_score = total_scores[triang_mask].max().item()
+    else:
+        avg_triang_score = "nan"
+        min_triang_score = "nan"
+        max_triang_score = "nan"
+
+    print("\n" + "=" * 40)
+    print(f"GENERAL_SCORE={avg_total_score:.6f}")
+    print(f"TRIANG_SCORE={avg_triang_score:.6f}")
+    print("=" * 40 + "\n")
 
     markdown_report = (
         "| Метрика | Значение |\n"
         "| --- | --- |\n"
-        f"| Количество пар (Batch) | `{n_samples}` |\n"
-        f"| **Итоговая ошибка (Score)** | **`{score:.6f}`** |\n\n"
+        f"| Всего пар в датасете | `{n_samples}` |\n"
+        f"| Из них строго триангуляризуемых (y=0) | `{triang_count}` |\n"
+        f"| **Итоговая ошибка (General Score)** | **`{avg_total_score:.6f}`** |\n"
+        f"| **Ошибка на трианг. матрицах (Triang Score)** | **`{avg_triang_score:.6f}`** |\n"
+        f"| **Мин. ошибка на трианг. матрицах (Triang Score)** | **`{min_triang_score:.6f}`** |\n"
+        f"| **Макс. ошибка на трианг. матрицах (Triang Score)** | **`{max_triang_score:.6f}`** |\n\n"
     )
 
+    # Сохраняем в файл metrics.md для бота
     with open("metrics.md", "w", encoding="utf-8") as f:
         f.write(markdown_report)
 
+    # Дублируем в Summary GitHub Actions
     summary_file = os.getenv("GITHUB_STEP_SUMMARY")
     if summary_file:
         with open(summary_file, "a", encoding="utf-8") as f:
