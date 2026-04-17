@@ -34,11 +34,7 @@ jobs:
       - name: Run model evaluation
         run: |
           # Запускаем скрипт оценки модели и сохраняем вывод в markdown файл
-          python evaluate.py > metrics.md
-          
-          # Также добавляем метрики в GitHub Step Summary (чтобы они отображались на странице самого Action)
-          echo "### Результаты оценки модели 📊" >> $GITHUB_STEP_SUMMARY
-          cat metrics.md >> $GITHUB_STEP_SUMMARY
+          python evaluate.py 
 
       - name: Comment PR
         uses: actions/github-script@v7
