@@ -17,7 +17,7 @@ def calc_lower_diag_metric(M: torch.Tensor) -> float:
 
 
 def main():
-    dataset_path = "dataset.npz"
+    dataset_path = "dataset/dataset.npz"
     if not os.path.exists(dataset_path):
         print(f"❌ ОШИБКА: Тестовый датасет {dataset_path} не найден!")
         sys.exit(1)
