@@ -3,6 +3,7 @@ import sys
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 try:
     from model.model import TriangularizerModel
@@ -52,31 +53,40 @@ def main():
         A_input = torch.tensor(A_data, dtype=torch.float64)
         B_input = torch.tensor(B_data, dtype=torch.float64)
 
-        T_pred = model(A_input, B_input)
+        batch_size = 256  # Можно изменить размер батча под вашу память
+        total_scores_list = []
 
-        if T_pred.shape != A_input.shape:
-            print(f"❌ ОШИБКА: Модель вернула T с размерностью {T_pred.shape}, "
-                  f"а ожидалось {A_input.shape}")
-            sys.exit(1)
+        for i in tqdm(range(0, n_samples, batch_size), desc="Оценка модели (Evaluation)", unit="batch"):
+            A_batch = A_input[i:i + batch_size]
+            B_batch = B_input[i:i + batch_size]
 
-        if T_pred.dtype != torch.float64:
-            print(f"❌ ОШИБКА : Модель вернула T с типом {T_pred.dtype}, "
-                  f"а ожидался строго torch.float64 (Double). "
-                  f"Проверьте, что в forward() вы не создаете тензоры через torch.tensor() без указания dtype.")
-            sys.exit(1)
-        try:
-            T_inv = torch.inverse(T_pred)
-        except RuntimeError:
-            print("❌ ОШИБКА: Нейросеть выдала вырожденную матрицу T (Singular Matrix). "
-                  "Ее невозможно обратить!")
-            sys.exit(1)
+            T_batch = model(A_batch, B_batch)
 
-        A_trans = T_inv @ A_input @ T_pred
-        B_trans = T_inv @ B_input @ T_pred
+            if T_batch.shape != A_batch.shape:
+                print(f"\n❌ ОШИБКА: Модель вернула T с размерностью {T_batch.shape}, "
+                      f"а ожидалось {A_batch.shape}")
+                sys.exit(1)
 
-        scores_A = calc_lower_diag_metric_batch(A_trans)
-        scores_B = calc_lower_diag_metric_batch(B_trans)
-        total_scores = scores_A + scores_B
+            if T_batch.dtype != torch.float64:
+                print(f"\n❌ ОШИБКА : Модель вернула T с типом {T_batch.dtype}, "
+                      f"а ожидался строго torch.float64 (Double). "
+                      f"Проверьте, что в forward() вы не создаете тензоры через torch.tensor() без указания dtype.")
+                sys.exit(1)
+            try:
+                T_inv = torch.inverse(T_batch)
+            except RuntimeError:
+                print("\n❌ ОШИБКА: Нейросеть выдала вырожденную матрицу T (Singular Matrix). "
+                      "Ее невозможно обратить!")
+                sys.exit(1)
+
+            A_trans = T_inv @ A_batch @ T_batch
+            B_trans = T_inv @ B_batch @ T_batch
+
+            scores_A = calc_lower_diag_metric_batch(A_trans)
+            scores_B = calc_lower_diag_metric_batch(B_trans)
+            total_scores_list.append(scores_A + scores_B)
+
+        total_scores = torch.cat(total_scores_list, dim=0)
 
     y_tensor = torch.tensor(y_data, dtype=torch.int32)
 
