@@ -36,7 +36,7 @@ $$ B' = T^TBT $$
 | 🧑‍💻 **Калмурзин Адилет** | *MLOps & ML Engineer* | [@adikonn](#) |
 | 🧮 **Никитин Владимир** | *роль* | [@metroooooosumma](#) |
 | ⚙️ **Подвысоцкий Константин**| *роль* | [@Samibaduk](#) |
-| 📈 **Тепляков Роман** | *роль* | [@Romandzella](#) |
+| 📈 **Тепляков Роман** | *VIBE ML CODING* | [@Romandzella](#) |
 
 <a href="https://github.com/adikonn/MaJoT/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=adikonn/MaJoT" />
