@@ -208,3 +208,11 @@ __marimo__/
 
 # tmp model files
 metrics.md
+
+# Experiment artifacts
+history_seed_*.json
+weights_seed_*.pt
+results_*.json
+report_*.md
+experiments_report.md
+experiments_results.json
