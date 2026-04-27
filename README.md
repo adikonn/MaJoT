@@ -46,3 +46,27 @@ $$ B' = T^TBT $$
 <div align="center">
   <i>Сделано с ❤️ командой ЧЕМПИОНЫ 🏆🏆🏆</i>
 </div>
+
+---
+
+## 🚀 Быстрый запуск (большой датасет + глубокая архитектура)
+
+### 1) Генерация большого датасета
+
+```bash
+python dataset/generate_data.py --n-size 3 --n-joint 50000 --n-non-joint 50000 --seed 42 --output dataset/dataset.npz
+```
+
+### 2) Обучение модели
+
+```bash
+python model/train.py --dataset dataset/dataset.npz --weights model_weights.pt --epochs 40 --batch-size 512 --lr 1e-3
+```
+
+### 3) Оценка
+
+```bash
+python evaluate.py
+```
+
+Новая архитектура использует более глубокую residual MLP и гарантирует обратимость матрицы преобразования $T$ через факторизацию $T = L \cdot U$ с положительной диагональю у $U$.
