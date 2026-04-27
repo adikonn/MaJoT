@@ -7,8 +7,19 @@ class TriangularizerModel(nn.Module):
         super().__init__()
         self.n = n
         # ВАЖНО: Все веса модели должны быть во float64!
-        # Заглушка
-        self.dummy_layer = nn.Linear(1, 1).to(torch.float64)
+        self.net = nn.Sequential(
+            nn.Linear(2 * n * n, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, n * n)
+        ).to(torch.float64)
+        
+        # Initialize final layer so T starts close to identity
+        nn.init.zeros_(self.net[-1].weight)
+        identity_bias = torch.eye(n, dtype=torch.float64).flatten()
+        with torch.no_grad():
+            self.net[-1].bias.copy_(identity_bias)
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
         """
@@ -21,8 +32,8 @@ class TriangularizerModel(nn.Module):
         """
         batch_size = A.shape[0]
 
-        # Заглушка
-        T = torch.eye(self.n, dtype=torch.float64, device=A.device)
-        T = T.unsqueeze(0).expand(batch_size, -1, -1)
+        x = torch.cat([A.view(batch_size, -1), B.view(batch_size, -1)], dim=-1)
+        out = self.net(x)
+        T = out.view(batch_size, self.n, self.n)
 
         return T

@@ -56,11 +56,12 @@ def create_dataset(n_joint=100, n_random=150, n_size=3, seed=42):
 
 if __name__ == "__main__":
     print("Генерация датасета...")
-    X_A, X_B, labels = create_dataset(n_joint=300, n_random=300, n_size=3)
+    # Increased dataset size significantly for better quality and robustness
+    X_A, X_B, labels = create_dataset(n_joint=5000, n_random=5000, n_size=3)
 
     print("\nРазмеры полученных тензоров:")
-    print(f"Матрицы A (X_A): {X_A.shape}")  # (250, 3, 3)
-    print(f"Матрицы B (X_B): {X_B.shape}")  # (250, 3, 3)
+    print(f"Матрицы A (X_A): {X_A.shape}")  # (10000, 3, 3)
+    print(f"Матрицы B (X_B): {X_B.shape}")  # (10000, 3, 3)
 
     filename = "dataset.npz"
     np.savez(filename, A=X_A, B=X_B, y=labels)
