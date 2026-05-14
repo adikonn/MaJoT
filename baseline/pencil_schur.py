@@ -1,28 +1,27 @@
-# pencil_schur.py
-
 import torch
-
+import scipy.linalg
+import numpy as np
 
 def joint_triangularize(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-    """
-    Бейзлайн 1: построить матрицу-карандаш C = A + 0.5*B,
-    выполнить Schur-разложение и использовать ортогональный Q как общее преобразование.
-
-    Args:
-        A: torch.Tensor, квадратная матрица размера (n, n)
-        B: torch.Tensor, квадратная матрица размера (n, n)
-
-    Returns:
-        Q: torch.Tensor, ортогональная матрица размера (n, n)
-    """
-    assert A.ndim == 2 and B.ndim == 2
-    assert A.shape == B.shape
-    assert A.shape[0] == A.shape[1]
-
-    # Линейная комбинация: C = A + 0.5 * B
-    C = A + 0.5 * B
-
-    # Пока просто "заглушка";
-    Q = torch.eye(A.shape[0], dtype=A.dtype, device=A.device)
-
-    return Q
+    # 1. Проверка входа
+    assert A.ndim == 2 and B.ndim == 2, "A and B must be 2D tensors"
+    assert A.shape == B.shape, "A and B must have the same shape"
+    assert A.shape[0] == A.shape[1], "A and B must be square matrices"
+    
+    device = A.device
+    dtype = A.dtype
+    
+    A_np = A.detach().cpu().numpy()
+    B_np = B.detach().cpu().numpy()
+    
+    # 2. Построение матрицы-карандаша C = alpha * A + beta * B
+    alpha = 1.0
+    beta = 0.5
+    C_np = alpha * A_np + beta * B_np
+    
+    # 3. Schur-разложение (вещественное, чтобы получить ортогональную Q)
+    # scipy.linalg.schur возвращает (T, Z), где Z - унитарная/ортогональная матрица преобразования (Q)
+    T, Q = scipy.linalg.schur(C_np, output='real')
+    
+    # 5. Возврат результата (Q, с тем же device и dtype)
+    return torch.from_numpy(Q).to(device=device, dtype=dtype)
