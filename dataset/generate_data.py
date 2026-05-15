@@ -1,67 +1,57 @@
-import numpy as np
+import os
+import torch
 
-
-def generate_jointly_triangularizable_pair(n=3):
-    Ta = np.triu(np.random.randn(n, n))
-    Tb = np.triu(np.random.randn(n, n))
-
-    P = np.random.randn(n, n)
-    while abs(np.linalg.det(P)) < 1e-2:
-        P = np.random.randn(n, n)
-
-    P_inv = np.linalg.inv(P)
-
-    A = P @ Ta @ P_inv
-    B = P @ Tb @ P_inv
-
+def generate_perfect(n, dtype=torch.float32):
+    # Генерируем случайную ортогональную матрицу Q через QR-разложение
+    H = torch.randn(n, n, dtype=dtype)
+    Q, _ = torch.linalg.qr(H)
+    
+    # Случайные верхнетреугольные матрицы
+    T_A = torch.triu(torch.randn(n, n, dtype=dtype))
+    T_B = torch.triu(torch.randn(n, n, dtype=dtype))
+    
+    # A = Q * T_A * Q^T
+    A = Q @ T_A @ Q.T
+    B = Q @ T_B @ Q.T
     return A, B
 
-
-def generate_random_pair(n=3):
-    A = np.random.randn(n, n)
-    B = np.random.randn(n, n)
+def generate_noisy(n, noise_level=1e-3, dtype=torch.float32):
+    A, B = generate_perfect(n, dtype=dtype)
+    A += noise_level * torch.randn(n, n, dtype=dtype)
+    B += noise_level * torch.randn(n, n, dtype=dtype)
     return A, B
 
+def generate_random(n, dtype=torch.float32):
+    A = torch.randn(n, n, dtype=dtype)
+    B = torch.randn(n, n, dtype=dtype)
+    return A, B
 
-def create_dataset(n_joint=100, n_random=150, n_size=3, seed=42):
-    np.random.seed(seed)
-
-    data_A = []
-    data_B = []
-    labels =[]
-    for _ in range(n_joint):
-        A, B = generate_jointly_triangularizable_pair(n=n_size)
-        data_A.append(A)
-        data_B.append(B)
-        labels.append(1)
-
-    for _ in range(n_random):
-        A, B = generate_random_pair(n=n_size)
-        data_A.append(A)
-        data_B.append(B)
-        labels.append(0)
-
-    data_A = np.array(data_A)
-    data_B = np.array(data_B)
-    labels = np.array(labels)
-
-    indices = np.arange(len(labels))
-    np.random.shuffle(indices)
-
-    data_A = data_A[indices]
-    data_B = data_B[indices]
-
-    return data_A, data_B, labels
-
+def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
+    torch.manual_seed(seed)
+    
+    dataset = []
+    
+    for n in sizes:
+        for _ in range(samples_per_config):
+            # 1. Perfect
+            A_perf, B_perf = generate_perfect(n)
+            dataset.append({"n": n, "type": "perfect", "A": A_perf, "B": B_perf})
+            
+            # 2. Noisy (noise = 1e-3)
+            A_noise, B_noise = generate_noisy(n, noise_level=1e-3)
+            dataset.append({"n": n, "type": "noisy", "A": A_noise, "B": B_noise})
+            
+            # 3. Random
+            A_rand, B_rand = generate_random(n)
+            dataset.append({"n": n, "type": "random", "A": A_rand, "B": B_rand})
+            
+    torch.save(dataset, save_path)
+    print(f"Dataset generated and saved to {save_path}")
+    print(f"Total samples: {len(dataset)}")
 
 if __name__ == "__main__":
-    print("Генерация датасета...")
-    X_A, X_B, labels = create_dataset(n_joint=300, n_random=300, n_size=3)
-
-    print("\nРазмеры полученных тензоров:")
-    print(f"Матрицы A (X_A): {X_A.shape}")  # (250, 3, 3)
-    print(f"Матрицы B (X_B): {X_B.shape}")  # (250, 3, 3)
-
-    filename = "dataset.npz"
-    np.savez(filename, A=X_A, B=X_B, y=labels)
-    print(f"\nДатасет успешно сохранен в файл: {filename}")
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    save_path = os.path.join(current_dir, "dataset.pt")
+    
+    sizes_to_test = [4, 8]
+    create_and_save_dataset(save_path, sizes=sizes_to_test, samples_per_config=5)
