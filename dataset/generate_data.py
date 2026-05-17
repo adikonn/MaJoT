@@ -1,6 +1,10 @@
 import os
 import torch
 
+
+MATRIX_TYPES = ("perfect", "noisy", "random")
+
+
 def generate_perfect(n, dtype=torch.float32):
     # Генерируем случайную ортогональную матрицу Q через QR-разложение
     H = torch.randn(n, n, dtype=dtype)
@@ -26,6 +30,18 @@ def generate_random(n, dtype=torch.float32):
     B = torch.randn(n, n, dtype=dtype)
     return A, B
 
+
+def generate_synthetic_pair(matrix_type, n, dtype=torch.float32):
+    generators = {
+        "perfect": generate_perfect,
+        "noisy": generate_noisy,
+        "random": generate_random,
+    }
+    if matrix_type not in generators:
+        raise ValueError(f"Unknown matrix type: {matrix_type}")
+    return generators[matrix_type](n, dtype=dtype)
+
+
 def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
     torch.manual_seed(seed)
     
@@ -33,17 +49,9 @@ def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
     
     for n in sizes:
         for _ in range(samples_per_config):
-            # 1. Perfect
-            A_perf, B_perf = generate_perfect(n)
-            dataset.append({"n": n, "type": "perfect", "A": A_perf, "B": B_perf})
-            
-            # 2. Noisy (noise = 1e-3)
-            A_noise, B_noise = generate_noisy(n, noise_level=1e-3)
-            dataset.append({"n": n, "type": "noisy", "A": A_noise, "B": B_noise})
-            
-            # 3. Random
-            A_rand, B_rand = generate_random(n)
-            dataset.append({"n": n, "type": "random", "A": A_rand, "B": B_rand})
+            for matrix_type in MATRIX_TYPES:
+                A, B = generate_synthetic_pair(matrix_type, n)
+                dataset.append({"n": n, "type": matrix_type, "A": A, "B": B})
             
     torch.save(dataset, save_path)
     print(f"Dataset generated and saved to {save_path}")
