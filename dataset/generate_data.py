@@ -3,6 +3,7 @@ import torch
 
 
 MATRIX_TYPES = ("perfect", "noisy", "random")
+DEFAULT_NOISE_LEVEL = 1e-3
 
 
 def generate_perfect(n, dtype=torch.float32):
@@ -31,18 +32,18 @@ def generate_random(n, dtype=torch.float32):
     return A, B
 
 
-def generate_synthetic_pair(matrix_type, n, dtype=torch.float32):
-    generators = {
-        "perfect": generate_perfect,
-        "noisy": generate_noisy,
-        "random": generate_random,
-    }
-    if matrix_type not in generators:
+def generate_synthetic_pair(matrix_type, size, noise_level=DEFAULT_NOISE_LEVEL, dtype=torch.float32):
+    if matrix_type == "perfect":
+        return generate_perfect(size, dtype=dtype)
+    if matrix_type == "noisy":
+        return generate_noisy(size, noise_level=noise_level, dtype=dtype)
+    if matrix_type == "random":
+        return generate_random(size, dtype=dtype)
+    else:
         raise ValueError(f"Unknown matrix type: {matrix_type}")
-    return generators[matrix_type](n, dtype=dtype)
 
 
-def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
+def create_and_save_dataset(save_path, sizes, samples_per_config=20, noise_level=DEFAULT_NOISE_LEVEL, seed=42):
     torch.manual_seed(seed)
     
     dataset = []
@@ -50,7 +51,7 @@ def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
     for n in sizes:
         for _ in range(samples_per_config):
             for matrix_type in MATRIX_TYPES:
-                A, B = generate_synthetic_pair(matrix_type, n)
+                A, B = generate_synthetic_pair(matrix_type, size=n, noise_level=noise_level)
                 dataset.append({"n": n, "type": matrix_type, "A": A, "B": B})
             
     torch.save(dataset, save_path)
