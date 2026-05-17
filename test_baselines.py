@@ -2,12 +2,12 @@ import pytest
 import torch
 
 # Импортируем все бейзлайны
-from baseline.pencil_schur import joint_triangularize as jt_matrix_pencil
+from baseline.pencil_schur import joint_triangularize as jt_schur
 from baseline.jacobi_type import joint_triangularize as jt_jacobi
 from baseline.optim_newton import joint_triangularize as jt_newton
 
 BASELINES = [
-    ("schur", jt_matrix_pencil),
+    ("schur", jt_schur),
     ("jacobi", jt_jacobi),
     ("newton", jt_newton),
 ]
