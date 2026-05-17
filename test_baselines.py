@@ -2,11 +2,15 @@ import pytest
 import torch
 
 # Импортируем все бейзлайны
-from baseline.pencil_schur import joint_triangularize as jt_schur
+from baseline.pencil_schur import joint_triangularize as jt_matrix_pencil
 from baseline.jacobi_type import joint_triangularize as jt_jacobi
 from baseline.optim_newton import joint_triangularize as jt_newton
 
-BASELINES = [("schur", jt_schur), ("jacobi", jt_jacobi), ("newton", jt_newton)]
+BASELINES = [
+    ("schur", jt_matrix_pencil),
+    ("jacobi", jt_jacobi),
+    ("newton", jt_newton),
+]
 
 
 def generate_test_matrices(n, device="cpu", dtype=torch.float64):

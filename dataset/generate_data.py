@@ -12,9 +12,9 @@ def generate_perfect(n, dtype=torch.float32):
     T_B = torch.triu(torch.randn(n, n, dtype=dtype))
 
     # A = Q * T_A * Q^T
-    A = Q @ T_A @ Q.T
-    B = Q @ T_B @ Q.T
-    return A, B
+    matrix_a = Q @ T_A @ Q.T
+    matrix_b = Q @ T_B @ Q.T
+    return matrix_a, matrix_b
 
 
 def generate_noisy(n, noise_level=1e-3, dtype=torch.float32):
@@ -25,9 +25,9 @@ def generate_noisy(n, noise_level=1e-3, dtype=torch.float32):
 
 
 def generate_random(n, dtype=torch.float32):
-    A = torch.randn(n, n, dtype=dtype)
-    B = torch.randn(n, n, dtype=dtype)
-    return A, B
+    matrix_a = torch.randn(n, n, dtype=dtype)
+    matrix_b = torch.randn(n, n, dtype=dtype)
+    return matrix_a, matrix_b
 
 
 def create_and_save_dataset(save_path, sizes, samples_per_config=20, seed=42):
