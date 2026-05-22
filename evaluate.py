@@ -30,9 +30,9 @@ def main():
         sys.exit(1)
 
     data = np.load(dataset_path)
-    A_data, B_data = data['A'], data['B']
+    A_data, B_data = data["A"], data["B"]
 
-    y_data = data['y']
+    y_data = data["y"]
     n_samples, n_size, _ = A_data.shape
 
     model = TriangularizerModel(n=n_size)
@@ -42,10 +42,12 @@ def main():
 
     weights_path = "model_weights.pt"
     if os.path.exists(weights_path):
-        model.load_state_dict(torch.load(weights_path, map_location='cpu'))
+        model.load_state_dict(torch.load(weights_path, map_location="cpu"))
         print(f"✅ Веса модели ({weights_path}) успешно загружены.")
     else:
-        print(f"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл {weights_path} не найден. Тестируем случайные веса!")
+        print(
+            f"⚠️ ПРЕДУПРЕЖДЕНИЕ: Файл {weights_path} не найден. Тестируем случайные веса!"
+        )
 
     model.eval()
 
@@ -56,27 +58,37 @@ def main():
         batch_size = 256  # Можно изменить размер батча под вашу память
         total_scores_list = []
 
-        for i in tqdm(range(0, n_samples, batch_size), desc="Оценка модели (Evaluation)", unit="batch"):
-            A_batch = A_input[i:i + batch_size]
-            B_batch = B_input[i:i + batch_size]
+        for i in tqdm(
+            range(0, n_samples, batch_size),
+            desc="Оценка модели (Evaluation)",
+            unit="batch",
+        ):
+            A_batch = A_input[i : i + batch_size]
+            B_batch = B_input[i : i + batch_size]
 
             T_batch = model(A_batch, B_batch)
 
             if T_batch.shape != A_batch.shape:
-                print(f"\n❌ ОШИБКА: Модель вернула T с размерностью {T_batch.shape}, "
-                      f"а ожидалось {A_batch.shape}")
+                print(
+                    f"\n❌ ОШИБКА: Модель вернула T с размерностью {T_batch.shape}, "
+                    f"а ожидалось {A_batch.shape}"
+                )
                 sys.exit(1)
 
             if T_batch.dtype != torch.float64:
-                print(f"\n❌ ОШИБКА : Модель вернула T с типом {T_batch.dtype}, "
-                      f"а ожидался строго torch.float64 (Double). "
-                      f"Проверьте, что в forward() вы не создаете тензоры через torch.tensor() без указания dtype.")
+                print(
+                    f"\n❌ ОШИБКА : Модель вернула T с типом {T_batch.dtype}, "
+                    f"а ожидался строго torch.float64 (Double). "
+                    f"Проверьте, что в forward() вы не создаете тензоры через torch.tensor() без указания dtype."
+                )
                 sys.exit(1)
             try:
                 T_inv = torch.inverse(T_batch)
             except RuntimeError:
-                print("\n❌ ОШИБКА: Нейросеть выдала вырожденную матрицу T (Singular Matrix). "
-                      "Ее невозможно обратить!")
+                print(
+                    "\n❌ ОШИБКА: Нейросеть выдала вырожденную матрицу T (Singular Matrix). "
+                    "Ее невозможно обратить!"
+                )
                 sys.exit(1)
 
             A_trans = T_inv @ A_batch @ T_batch
@@ -92,7 +104,7 @@ def main():
 
     avg_total_score = total_scores.mean().item()
 
-    triang_mask = (y_tensor == 1)
+    triang_mask = y_tensor == 1
     triang_count = triang_mask.sum().item()
     if triang_count > 0:
         avg_triang_score = total_scores[triang_mask].mean().item()
