@@ -208,3 +208,5 @@ __marimo__/
 
 # tmp model files
 metrics.md
+checkpoints/*
+wandb/*
