@@ -22,7 +22,7 @@ class TriangularizerModel(nn.Module):
         batch_size = A.shape[0]
 
         # Заглушка
-        T = torch.eye(self.n, dtype=torch.float64, device=A.device)
-        T = T.unsqueeze(0).expand(batch_size, -1, -1)
+        transform = torch.eye(self.n, dtype=torch.float64, device=A.device)
+        transform = transform.unsqueeze(0).expand(batch_size, -1, -1)
 
-        return T
+        return transform

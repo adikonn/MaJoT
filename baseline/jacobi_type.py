@@ -22,7 +22,9 @@ def _lower_tri_residual_squared(A: torch.Tensor, B: torch.Tensor) -> torch.Tenso
     return (A[mask] ** 2).sum() + (B[mask] ** 2).sum()
 
 
-def _similarity_givens_inplace(M: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor) -> None:
+def _similarity_givens_inplace(
+    M: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor
+) -> None:
     """
     Сходство: M <- G^T M G.
 
@@ -46,7 +48,9 @@ def _similarity_givens_inplace(M: torch.Tensor, j: int, i: int, c: torch.Tensor,
     M[:, i] = -s * cj + c * ci
 
 
-def _right_multiply_givens_inplace(Q: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor) -> None:
+def _right_multiply_givens_inplace(
+    Q: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor
+) -> None:
     """
     Накопление ортогонального преобразования: Q <- Q G.
 
