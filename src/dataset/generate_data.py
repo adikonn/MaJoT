@@ -9,7 +9,8 @@ DEFAULT_NOISE_LEVEL = 1e-3
 def generate_perfect(n, dtype=torch.float32):
     # Генерируем случайную ортогональную матрицу Q через QR-разложение
     H = torch.randn(n, n, dtype=dtype)
-    Q, _ = torch.linalg.qr(H)
+    Q, R = torch.linalg.qr(H)
+    Q = Q * torch.sign(torch.diag(R))   # теперь Q ~ Haar на O(n)
 
     # Случайные верхнетреугольные матрицы
     T_A = torch.triu(torch.randn(n, n, dtype=dtype))
@@ -23,8 +24,8 @@ def generate_perfect(n, dtype=torch.float32):
 
 def generate_noisy(n, noise_level=1e-3, dtype=torch.float32):
     matrix_a, matrix_b = generate_perfect(n, dtype=dtype)
-    matrix_a += noise_level * torch.randn(n, n, dtype=dtype)
-    matrix_b += noise_level * torch.randn(n, n, dtype=dtype)
+    matrix_a += noise_level * matrix_a.std() * torch.randn(n, n, dtype=dtype)
+    matrix_b += noise_level * matrix_b.std() * torch.randn(n, n, dtype=dtype)
     return matrix_a, matrix_b
 
 
