@@ -4,10 +4,10 @@
 # Override any field from the CLI, e.g.:
 #   python scripts/train.py --config configs/matrix_transformer.yaml --override training.lr=3e-4 model.num_layers=6
 
-experiment_name: matrix_transformer_v1
+experiment_name: matrix_transformer_v2
 seed: 42
 device: cuda  # falls back to cpu automatically if CUDA isn't available
-checkpoint_dir: checkpoints/matrix_transformer_v1
+checkpoint_dir: checkpoints/matrix_transformer_v2
 
 model:
   name: matrix_transformer
