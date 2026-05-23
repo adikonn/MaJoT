@@ -2,9 +2,9 @@ import pytest
 import torch
 
 # Импортируем все бейзлайны
-from baseline.pencil_schur import joint_triangularize as jt_schur
-from baseline.jacobi_type import joint_triangularize as jt_jacobi
-from baseline.optim_newton import joint_triangularize as jt_newton
+from src.baseline.pencil_schur import joint_triangularize as jt_schur
+from src.baseline.jacobi_type import joint_triangularize as jt_jacobi
+from src.baseline.optim_newton import joint_triangularize as jt_newton
 
 BASELINES = [
     ("schur", jt_schur),

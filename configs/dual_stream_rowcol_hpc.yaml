@@ -1,0 +1,49 @@
+# Продакшен-конфиг для обучения DualStreamRowCol на GPU-кластере (суперкомпьютер ВК).
+# Перед запуском: scripts/prepare_dataset.py --config configs/dual_stream_rowcol_hpc.yaml
+# Обучение:     scripts/hpc/submit_train.slurm  (или python scripts/train.py ...)
+
+experiment_name: dual_stream_rowcol_hpc_v1
+seed: 42
+device: cuda
+
+# На кластере укажите абсолютный путь к рабочей директории проекта, например:
+# checkpoint_dir: /home/user/majot/checkpoints/dual_stream_rowcol_hpc_v1
+checkpoint_dir: checkpoints/dual_stream_rowcol_hpc_v1
+
+model:
+  name: dual_stream_rowcol
+  hidden_dim: 192
+  num_heads: 8
+  num_layers: 4
+  max_n: 32
+  dropout: 0.05
+  ffn_mult: 4
+
+data:
+  ns: [4, 6, 8, 10]
+  types: ["perfect", "noisy", "random"]
+  noise_level: 1.0e-3
+  samples_per_n_per_type: 8000
+  val_fraction: 0.1
+  batch_size: 128
+  num_workers: 8
+  pin_memory: true
+  cache_dir: dataset/cache
+  seed: 42
+  test_samples_per_n_per_type: 200
+  test_seed: 999
+
+training:
+  epochs: 120
+  lr: 2.0e-4
+  weight_decay: 5.0e-3
+  lambda_orth: 0.35
+  grad_clip: 1.0
+  scheduler: cosine
+  amp: true
+
+wandb:
+  project: majot
+  entity: null          # задать через WANDB_ENTITY или --override wandb.entity=...
+  mode: online          # на кластере: export WANDB_API_KEY=...
+  tags: ["dual_stream_rowcol", "hpc", "vk"]

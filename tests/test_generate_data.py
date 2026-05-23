@@ -1,6 +1,6 @@
 import torch
 
-from dataset.generate_data import MATRIX_TYPES, generate_synthetic_pair
+from src.dataset.generate_data import MATRIX_TYPES, generate_synthetic_pair
 
 
 def test_generate_synthetic_pair_supports_size_for_all_types():

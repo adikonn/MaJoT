@@ -1,0 +1,44 @@
+# Локальный конфиг (отладка, smoke-тесты). Для кластера — dual_stream_rowcol_hpc.yaml
+
+experiment_name: dual_stream_rowcol_local
+seed: 42
+device: cuda
+checkpoint_dir: checkpoints/dual_stream_rowcol_local
+
+model:
+  name: dual_stream_rowcol
+  hidden_dim: 128
+  num_heads: 4
+  num_layers: 3
+  max_n: 32
+  dropout: 0.1
+  ffn_mult: 4
+
+data:
+  ns: [4, 6, 8]
+  types: ["perfect", "noisy", "random"]
+  noise_level: 1.0e-3
+  samples_per_n_per_type: 1000
+  val_fraction: 0.1
+  batch_size: 64
+  num_workers: 0
+  pin_memory: true
+  cache_dir: dataset/cache
+  seed: 42
+  test_samples_per_n_per_type: 50
+  test_seed: 999
+
+training:
+  epochs: 30
+  lr: 3.0e-4
+  weight_decay: 1.0e-2
+  lambda_orth: 0.35
+  grad_clip: 1.0
+  scheduler: cosine
+  amp: true
+
+wandb:
+  project: majot
+  entity: null
+  mode: offline
+  tags: ["dual_stream_rowcol", "local"]
