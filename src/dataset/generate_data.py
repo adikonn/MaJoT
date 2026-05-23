@@ -45,27 +45,3 @@ def generate_synthetic_pair(matrix_type, size, noise_level=DEFAULT_NOISE_LEVEL, 
         return generate_random(size, dtype=dtype)
     else:
         raise ValueError(f"Unknown matrix type: {matrix_type}")
-
-
-def create_and_save_dataset(save_path, sizes, samples_per_config=20, noise_level=DEFAULT_NOISE_LEVEL, seed=42):
-    torch.manual_seed(seed)
-
-    dataset = []
-
-    for n in sizes:
-        for _ in range(samples_per_config):
-            for matrix_type in MATRIX_TYPES:
-                A, B = generate_synthetic_pair(matrix_type, size=n, noise_level=noise_level)
-                dataset.append({"n": n, "type": matrix_type, "A": A, "B": B})
-            
-    torch.save(dataset, save_path)
-    print(f"Dataset generated and saved to {save_path}")
-    print(f"Total samples: {len(dataset)}")
-
-
-if __name__ == "__main__":
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    save_path = os.path.join(current_dir, "dataset.pt")
-
-    sizes_to_test = [4, 8]
-    create_and_save_dataset(save_path, sizes=sizes_to_test, samples_per_config=5)
