@@ -28,22 +28,15 @@ import torch.nn as nn
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.models.dual_stream_rowcol import DualStreamRowCol
-from src.models.matrix_transformer import MatrixTransformer
-
 
 # ---------------------------------------------------------------------------
 # Model factories
 # ---------------------------------------------------------------------------
-def _factory_matrix_transformer() -> nn.Module:
-    return MatrixTransformer(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
-
-
 def _factory_dual_stream_rowcol() -> nn.Module:
     return DualStreamRowCol(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
 
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
-    ("matrix_transformer", _factory_matrix_transformer),
     ("dual_stream_rowcol", _factory_dual_stream_rowcol),
 ]
 
