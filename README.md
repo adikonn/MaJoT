@@ -33,10 +33,10 @@ $$ B' = T^TBT $$
 
 | Имя | Роль в проекте | GitHub / Контакты |
 | :--- | :--- | :--- |
-| 🧑‍💻 **Калмурзин Адилет** | *MLOps & ML Engineer* | [@adikonn](#) |
-| 🧮 **Никитин Владимир** | *роль* | [@metroooooosumma](#) |
-| ⚙️ **Подвысоцкий Константин**| *роль* | [@Samibaduk](#) |
-| 📈 **Тепляков Роман** | *VIBE ML CODING* | [@Romandzella](#) |
+| 🧑‍💻 **Калмурзин Адилет** | *Math/Researcher* | [@adikonn](#) |
+| 🧮 **Никитин Владимир** | *QA/Experiments* | [@metroooooosumma](#) |
+| ⚙️ **Подвысоцкий Константин**| *Backend/Product* | [@Samibaduk](#) |
+| 📈 **Тепляков Роман** | *ML/Training* | [@Romandzella](#) |
 
 <a href="https://github.com/adikonn/MaJoT/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=adikonn/MaJoT" />
