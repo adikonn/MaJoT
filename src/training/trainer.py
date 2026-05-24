@@ -1,4 +1,4 @@
-"""Цикл обучения с логированием в W&B и сохранением лучшего чекпойнта."""
+"""Training loop with wandb logging and best-checkpoint tracking."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,33 +26,20 @@ def train_one_epoch(
     lambda_orth: float,
     grad_clip: float,
     device: torch.device,
-    scaler: torch.amp.GradScaler | None = None,
-    use_amp: bool = False,
 ) -> dict[str, float]:
     model.train()
     metrics: list[dict[str, float]] = []
-    amp_device = "cuda" if device.type == "cuda" else "cpu"
     for batch in loader:
-        A = batch["A"].to(device, non_blocking=True)
-        B = batch["B"].to(device, non_blocking=True)
+        A = batch["A"].to(device)
+        B = batch["B"].to(device)
 
-        optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type=amp_device, enabled=use_amp):
-            T = model(A, B)
-            loss, components = total_loss(T, A, B, lambda_orth=lambda_orth)
-
-        if scaler is not None and use_amp:
-            scaler.scale(loss).backward()
-            if grad_clip > 0:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            if grad_clip > 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
-            optimizer.step()
+        optimizer.zero_grad()
+        T = model(A, B)
+        loss, components = total_loss(T, A, B, lambda_orth=lambda_orth)
+        loss.backward()
+        if grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
+        optimizer.step()
 
         metrics.append({"loss_total": float(loss.detach()), **components})
     return _aggregate(metrics)
@@ -73,7 +60,7 @@ def validate(
         T = model(A, B)
         loss, components = total_loss(T, A, B, lambda_orth=lambda_orth)
         m = {"loss_total": float(loss.detach()), **components}
-        # Геометрические метрики по первому элементу батча (для мониторинга).
+        # Per-sample geometric metrics on the first item of the batch.
         m.update(evaluate_transform(T[0], A[0], B[0]))
         metrics.append(m)
     return _aggregate(metrics)
@@ -101,8 +88,6 @@ def train(
 
     lambda_orth = tcfg["lambda_orth"]
     grad_clip = tcfg.get("grad_clip", 0.0)
-    use_amp = bool(tcfg.get("amp", False)) and device.type == "cuda"
-    scaler = torch.amp.GradScaler("cuda", enabled=use_amp) if use_amp else None
 
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_path = checkpoint_dir / "best_model.pt"
@@ -110,9 +95,7 @@ def train(
 
     best_val = float("inf")
     for epoch in range(tcfg["epochs"]):
-        train_m = train_one_epoch(
-            model, train_loader, optimizer, lambda_orth, grad_clip, device, scaler, use_amp
-        )
+        train_m = train_one_epoch(model, train_loader, optimizer, lambda_orth, grad_clip, device)
         val_m = validate(model, val_loader, lambda_orth, device)
         if scheduler is not None:
             scheduler.step()
@@ -133,13 +116,12 @@ def train(
             wandb.run.summary["best_val_loss"] = best_val
             wandb.run.summary["best_epoch"] = epoch
 
-        line = (
+        print(
             f"epoch {epoch:4d} | "
             f"train loss {train_m['loss_total']:.6f} | "
             f"val loss {val_m['loss_total']:.6f} | "
             f"val lower_A {val_m['lower_ratio_A']:.4f} | "
             f"val lower_B {val_m['lower_ratio_B']:.4f}"
         )
-        print(line, flush=True)
 
     wandb.save(str(best_path), policy="now")

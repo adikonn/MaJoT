@@ -27,8 +27,9 @@ import torch.nn as nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.models.dual_stream_rowcol import DualStreamRowCol
 from src.models.matrix_transformer import MatrixTransformer
+# Add imports for additional models here, e.g.:
+# from src.models.my_new_model import MyNewModel
 
 
 # ---------------------------------------------------------------------------
@@ -38,13 +39,13 @@ def _factory_matrix_transformer() -> nn.Module:
     return MatrixTransformer(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
 
-def _factory_dual_stream_rowcol() -> nn.Module:
-    return DualStreamRowCol(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
+# def _factory_my_new_model() -> nn.Module:
+#     return MyNewModel(hidden_dim=32, ...)
 
 
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("matrix_transformer", _factory_matrix_transformer),
-    ("dual_stream_rowcol", _factory_dual_stream_rowcol),
+    # ("my_new_model", _factory_my_new_model),
 ]
 
 # Matrix sizes used by parametrized universal tests. Any registered model must

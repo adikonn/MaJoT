@@ -1,58 +1,108 @@
-#!/usr/bin/env python
-"""Бенчмарк классических бейзлайнов на том же тестовом наборе, что и нейросеть."""
-from __future__ import annotations
-
-import argparse
-import csv
-import sys
-from pathlib import Path
-
 import torch
-import yaml
+import time
+import pandas as pd
+import os
+from typing import cast
+from tqdm import tqdm
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from baseline.pencil_schur import joint_triangularize as schur_jt
+from baseline.jacobi_type import joint_triangularize as jacobi_jt
+from baseline.optim_newton import joint_triangularize as newton_jt
 
-from scripts.compare_predictors import bench_one, summarize  # noqa: E402
-from src.baseline.jacobi_type import joint_triangularize as jacobi_jt  # noqa: E402
-from src.baseline.optim_newton import joint_triangularize as newton_jt  # noqa: E402
-from src.baseline.pencil_schur import joint_triangularize as schur_jt  # noqa: E402
-from src.training.data import build_test_dataset  # noqa: E402
-
-BASELINES = {
-    "schur": schur_jt,
-    "jacobi": jacobi_jt,
-    "newton": newton_jt,
-}
+BASELINES = {"Schur": schur_jt, "Jacobi": jacobi_jt, "Newton": newton_jt}
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="configs/dual_stream_rowcol_hpc.yaml")
-    parser.add_argument("--output", default="results/benchmark_baselines.csv")
-    args = parser.parse_args()
+def compute_rel_residual(A, B, Q):
+    """
+    Вычисляет относительный нижнетреугольный residual после применения преобразования Q.
+    """
+    A_prime = Q.T @ A @ Q
+    B_prime = Q.T @ B @ Q
 
-    with open(args.config, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+    def tril_sq_sum(M):
+        # Сумма квадратов элементов строго ниже главной диагонали
+        return torch.sum(torch.tril(M, diagonal=-1) ** 2)
 
-    test_data = build_test_dataset(config["data"])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    num = tril_sq_sum(A_prime) + tril_sq_sum(B_prime)
+    den = torch.sum(A**2) + torch.sum(B**2) + 1e-12
+    return (num / den).item()
 
-    all_rows: list[dict] = []
-    for name, fn in BASELINES.items():
-        print(f"Бенчмарк {name}...", flush=True)
-        predictor = lambda A, B, f=fn: f(A.cpu(), B.cpu())
-        all_rows.extend(bench_one(name, predictor, test_data, device))
 
-    summarize(all_rows)
+def run_benchmark():
+    dataset_path = "dataset/dataset.pt"
+    if not os.path.exists(dataset_path):
+        print(f"Dataset not found at {dataset_path}. Please generate it first.")
+        return
 
-    out = Path(args.output)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(all_rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(all_rows)
-    print(f"CSV: {out}", flush=True)
+    dataset = torch.load(dataset_path)
+    print(f"Loaded {len(dataset)} samples. Starting benchmark...")
+
+    results = []
+
+    for sample in tqdm(dataset, desc="Benchmarking"):
+        n = sample["n"]
+        mtype = sample["type"]
+        A = sample["A"]
+        B = sample["B"]
+
+        for alg_name, alg_fn in BASELINES.items():
+            try:
+                # Измерение времени (1 прогон без warmup для максимальной скорости бенчмарка,
+                # так как матрицы могут быть большими и итеративные методы работают долго)
+                start_time = time.perf_counter()
+                Q = alg_fn(A, B)
+                end_time = time.perf_counter()
+
+                elapsed = end_time - start_time
+                residual = compute_rel_residual(A, B, Q)
+
+                results.append(
+                    {
+                        "Algorithm": alg_name,
+                        "Type": mtype,
+                        "n": n,
+                        "Time (s)": elapsed,
+                        "Rel_Residual": residual,
+                    }
+                )
+            except Exception:
+                # В случае краша алгоритма (например расходится)
+                results.append(
+                    {
+                        "Algorithm": alg_name,
+                        "Type": mtype,
+                        "n": n,
+                        "Time (s)": float("nan"),
+                        "Rel_Residual": float("nan"),
+                    }
+                )
+
+    df = pd.DataFrame(results)
+
+    # Агрегируем результаты - среднее по размерам и типам
+    agg_df = cast(
+        pd.DataFrame,
+        df.groupby(["Algorithm", "Type", "n"], as_index=False).agg(
+            {"Time (s)": "mean", "Rel_Residual": "mean"}
+        ),
+    )
+
+    # Сортируем для красивого вывода
+    agg_df = agg_df.sort_values(by=["Type", "n", "Algorithm"])
+
+    print("\n# Результаты бенчмарка бейзлайнов")
+    print(
+        "Сравнение алгоритмов по метрикам относительного нижнетреугольного residual'а и времени выполнения.\n"
+    )
+
+    try:
+        print(agg_df.to_markdown(index=False, floatfmt=".6f"))
+    except ImportError:
+        print(
+            "\nБиблиотека tabulate не установлена. Выводим без форматирования markdown:"
+        )
+        print(agg_df.to_string(index=False))
 
 
 if __name__ == "__main__":
-    main()
+    run_benchmark()

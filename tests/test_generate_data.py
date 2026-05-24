@@ -1,6 +1,6 @@
 import torch
 
-from src.dataset.generate_data import MATRIX_TYPES, generate_synthetic_pair
+from dataset.generate_data import MATRIX_TYPES, generate_synthetic_pair
 
 
 def test_generate_synthetic_pair_supports_size_for_all_types():
@@ -20,4 +20,3 @@ def test_generate_synthetic_pair_supports_noise_parameter():
 
     assert torch.allclose(perfect_a, noisy_a)
     assert torch.allclose(perfect_b, noisy_b)
-

@@ -1,93 +1,108 @@
+"""Shared test fixtures and the model-under-test registry.
+
+================================================================================
+HOW TO ADD YOUR MODEL TO THE TEST SUITE
+================================================================================
+1. Implement your model in src/models/ as an nn.Module that also implements the
+   Triangularizer interface (i.e. provides `find_transform(A, B) -> T` and a
+   normal `forward(A, B) -> T`).
+2. Register your model in `src/models/__init__.py` so `build_model` knows it.
+3. Add an entry to MODEL_FACTORIES below — a tuple of (display_name, factory).
+   The factory must construct a SMALL instance of your model (training-test
+   instances are intentionally tiny so the full suite stays fast).
+
+After step 3 every test in test_model.py will be automatically parametrized
+over your new model. No further edits to test files are required.
+================================================================================
+"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Callable
+
 import pytest
 import torch
+import torch.nn as nn
 
-# Импортируем все бейзлайны
-from src.baseline.pencil_schur import joint_triangularize as jt_schur
-from src.baseline.jacobi_type import joint_triangularize as jt_jacobi
-from src.baseline.optim_newton import joint_triangularize as jt_newton
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-BASELINES = [
-    ("schur", jt_schur),
-    ("jacobi", jt_jacobi),
-    ("newton", jt_newton),
+from src.models.matrix_transformer import MatrixTransformer
+# Add imports for additional models here, e.g.:
+# from src.models.my_new_model import MyNewModel
+
+
+# ---------------------------------------------------------------------------
+# Model factories
+# ---------------------------------------------------------------------------
+def _factory_matrix_transformer() -> nn.Module:
+    return MatrixTransformer(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
+
+
+# def _factory_my_new_model() -> nn.Module:
+#     return MyNewModel(hidden_dim=32, ...)
+
+
+MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
+    ("matrix_transformer", _factory_matrix_transformer),
+    # ("my_new_model", _factory_my_new_model),
 ]
 
-
-def generate_test_matrices(n, device="cpu", dtype=torch.float64):
-    # Генерируем случайные квадратные матрицы
-    A = torch.randn(n, n, device=device, dtype=dtype)
-    B = torch.randn(n, n, device=device, dtype=dtype)
-    return A, B
+# Matrix sizes used by parametrized universal tests. Any registered model must
+# at minimum support these. Adjust if you intentionally want larger coverage.
+TEST_NS: list[int] = [4, 8]
 
 
-def get_lower_triangular_residual(M):
-    """Вычисляет сумму квадратов элементов строго ниже главной диагонали."""
-    tril_indices = torch.tril_indices(M.shape[0], M.shape[1], offset=-1)
-    return torch.sum(M[tril_indices[0], tril_indices[1]] ** 2)
+# ---------------------------------------------------------------------------
+# Pytest fixtures
+# ---------------------------------------------------------------------------
+@pytest.fixture(
+    params=[factory for _, factory in MODEL_FACTORIES],
+    ids=[name for name, _ in MODEL_FACTORIES],
+)
+def model(request) -> nn.Module:
+    """A freshly constructed instance of each registered model.
 
-
-@pytest.mark.parametrize("name, joint_triangularize", BASELINES)
-@pytest.mark.parametrize("n", [4, 10])
-def test_returns_orthogonal_matrix(name, joint_triangularize, n):
-    A, B = generate_test_matrices(n)
-
-    Q = joint_triangularize(A, B)
-
-    assert Q.shape == (n, n), f"{name}: Q has wrong shape"
-    assert Q.device == A.device, f"{name}: Q is on wrong device"
-    assert Q.dtype == A.dtype, f"{name}: Q has wrong dtype"
-
-    # Проверка на ортогональность: Q^T @ Q ≈ I
-    identity = torch.eye(n, dtype=Q.dtype, device=Q.device)
-    assert torch.allclose(Q.T @ Q, identity, atol=1e-5), f"{name}: Q is not orthogonal"
-
-
-@pytest.mark.parametrize("name, joint_triangularize", BASELINES)
-def test_minimizes_residual_vs_random(name, joint_triangularize):
+    Use this in any test that should be run against every model.
     """
-    Проверяет, что результаты алгоритма (A', B') имеют меньший или
-    соизмеримый residual нижнетреугольных элементов по сравнению
-    со случайным ортогональным преобразованием.
+    return request.param()
+
+
+@pytest.fixture
+def model_name(request) -> str:
+    """Display name of the current model being tested (matches the fixture id)."""
+    return request.node.callspec.id if hasattr(request.node, "callspec") else "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers used across multiple test files
+# ---------------------------------------------------------------------------
+def random_pair(n: int, dtype=torch.float32, device: str = "cpu"):
+    """Two unrelated random matrices."""
+    return (
+        torch.randn(n, n, dtype=dtype, device=device),
+        torch.randn(n, n, dtype=dtype, device=device),
+    )
+
+
+def perfect_pair(n: int, dtype=torch.float64, device: str = "cpu"):
+    """A pair (A, B, Q) such that Q.T @ A @ Q and Q.T @ B @ Q are both upper triangular.
+
+    Returns the ground-truth Q together with the matrices.
     """
-    n = 8
-    A, B = generate_test_matrices(n)
-
-    # Решение алгоритма
-    Q = joint_triangularize(A, B)
-    A_prime = Q.T @ A @ Q
-    B_prime = Q.T @ B @ Q
-
-    res_alg = get_lower_triangular_residual(A_prime) + get_lower_triangular_residual(
-        B_prime
-    )
-
-    # Случайное ортогональное преобразование
-    H = torch.randn(n, n, dtype=A.dtype, device=A.device)
-    Q_rand, _ = torch.linalg.qr(H)
-    A_rand = Q_rand.T @ A @ Q_rand
-    B_rand = Q_rand.T @ B @ Q_rand
-
-    res_rand = get_lower_triangular_residual(A_rand) + get_lower_triangular_residual(
-        B_rand
-    )
-
-    # Бейзлайн должен хоть как-то стараться минимизировать нижнетреугольную часть.
-    # Это условие может нарушаться для единичных случайных матриц, если бейзлайн неэффективен,
-    # но оно работает как базовый sanity check.
-    assert res_alg <= res_rand * 1.5, (
-        f"{name}: Residual is too large {res_alg} vs random {res_rand}"
-    )
+    H = torch.randn(n, n, dtype=dtype, device=device)
+    Q, R = torch.linalg.qr(H)
+    Q = Q * torch.sign(torch.diag(R))            # Mezzadri: uniform on O(n)
+    T_A = torch.triu(torch.randn(n, n, dtype=dtype, device=device))
+    T_B = torch.triu(torch.randn(n, n, dtype=dtype, device=device))
+    A = Q @ T_A @ Q.T
+    B = Q @ T_B @ Q.T
+    return A, B, Q
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-@pytest.mark.parametrize("name, joint_triangularize", BASELINES)
-def test_cuda_support(name, joint_triangularize):
-    n = 6
-    A, B = generate_test_matrices(n, device="cuda")
-    Q = joint_triangularize(A, B)
-
-    assert Q.is_cuda, f"{name}: Q should be on CUDA"
-    identity = torch.eye(n, dtype=Q.dtype, device=Q.device)
-    assert torch.allclose(Q.T @ Q, identity, atol=1e-5), (
-        f"{name}: Q is not orthogonal on CUDA"
-    )
+# ---------------------------------------------------------------------------
+# Pytest markers
+# ---------------------------------------------------------------------------
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: heavier integration tests (overfit, training)")
+    config.addinivalue_line("markers", "cuda: requires CUDA device")
