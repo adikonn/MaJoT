@@ -1,0 +1,44 @@
+# Config for IterativeRefinementTriangularizer.
+# Run with:
+#   python scripts/train.py --config configs/iterative_refinement.yaml
+# Override any field from the CLI, e.g.:
+#   python scripts/train.py --config configs/iterative_refinement.yaml --override training.lr=1e-3
+
+experiment_name: iterative_refinement_v1
+seed: 42
+device: cuda  # falls back to cpu automatically if CUDA isn't available
+checkpoint_dir: checkpoints/iterative_refinement_v1
+
+model:
+  name: iterative_refinement
+  hidden_dim: 64
+  num_heads: 4
+  num_steps: 6
+  max_n: 32
+  dropout: 0.1
+  ffn_mult: 2
+
+data:
+  ns: [4, 6, 8]
+  types: ["perfect", "noisy"]
+  noise_level: 1.0e-3
+  samples_per_n_per_type: 5000
+  val_fraction: 0.1
+  batch_size: 64
+  seed: 42
+  test_samples_per_n_per_type: 100
+  test_seed: 999
+
+training:
+  epochs: 60
+  lr: 3.0e-4
+  weight_decay: 1.0e-2
+  lambda_orth: 0.5
+  grad_clip: 1.0
+  scheduler: cosine   # cosine | null
+
+wandb:
+  project: majot
+  entity: null         # set this to your wandb username/team or leave null
+  mode: online         # online | offline | disabled
+  tags: ["iterative_refinement", "baseline_comparison"]
