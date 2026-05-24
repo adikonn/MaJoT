@@ -28,6 +28,7 @@ import torch.nn as nn
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.models.dual_stream_rowcol import DualStreamRowCol
+from src.models.iterative_refinement import IterativeRefinementTriangularizer
 
 # ---------------------------------------------------------------------------
 # Model factories
@@ -36,8 +37,13 @@ def _factory_dual_stream_rowcol() -> nn.Module:
     return DualStreamRowCol(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
 
+def _factory_iterative_refinement() -> nn.Module:
+    return IterativeRefinementTriangularizer(hidden_dim=32, num_heads=2, num_steps=4, max_n=16)
+
+
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("dual_stream_rowcol", _factory_dual_stream_rowcol),
+    ("iterative_refinement", _factory_iterative_refinement),
 ]
 
 # Matrix sizes used by parametrized universal tests. Any registered model must
