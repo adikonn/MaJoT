@@ -7,13 +7,19 @@ import torch.nn as nn
 
 from .base import Triangularizer
 from .dual_stream_rowcol import DualStreamRowCol
+from .dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from .iterative_refinement import IterativeRefinementTriangularizer
+from .iterative_refinement_ortho import IterativeRefinementOrtho
 from .matrix_transformer import MatrixTransformer
+from .matrix_transformer_ortho import MatrixTransformerOrtho
 
 _REGISTRY: dict[str, type[nn.Module]] = {
     "matrix_transformer": MatrixTransformer,
+    "matrix_transformer_ortho": MatrixTransformerOrtho,
     "dual_stream_rowcol": DualStreamRowCol,
+    "dual_stream_rowcol_ortho": DualStreamRowColOrtho,
     "iterative_refinement": IterativeRefinementTriangularizer,
+    "iterative_refinement_ortho": IterativeRefinementOrtho,
 }
 
 
@@ -34,6 +40,9 @@ __all__ = [
     "build_model",
     "Triangularizer",
     "MatrixTransformer",
+    "MatrixTransformerOrtho",
     "DualStreamRowCol",
+    "DualStreamRowColOrtho",
     "IterativeRefinementTriangularizer",
+    "IterativeRefinementOrtho",
 ]
