@@ -33,7 +33,7 @@ training:
   epochs: 60
   lr: 3.0e-4
   weight_decay: 1.0e-2
-  lambda_orth: 0.5
+  lambda_orth: 0.0
   grad_clip: 1.0
   scheduler: cosine   # cosine | null
 
