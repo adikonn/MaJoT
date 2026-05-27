@@ -107,10 +107,12 @@ class LearnedGivens(nn.Module, Triangularizer):
         T: (batch, n, n)
         c,s: (batch,)
         """
-        Ti = T[:, i, :]
-        Tj = T[:, j, :]
-        T[:, i, :] = c[:, None] * Ti - s[:, None] * Tj
-        T[:, j, :] = s[:, None] * Ti + c[:, None] * Tj
+        Ti = T[:, i, :].clone()
+        Tj = T[:, j, :].clone()
+        new_Ti = c[:, None] * Ti - s[:, None] * Tj
+        new_Tj = s[:, None] * Ti + c[:, None] * Tj
+        T[:, i, :] = new_Ti
+        T[:, j, :] = new_Tj
         return T
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
