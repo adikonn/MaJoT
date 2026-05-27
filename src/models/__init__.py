@@ -6,6 +6,7 @@ from typing import Any
 import torch.nn as nn
 
 from .base import Triangularizer
+from .cross_attn_triangularizer import CrossAttnTriangularizer
 from .dual_stream_rowcol import DualStreamRowCol
 from .dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from .equivariant_matrix_net import EquivariantMatrixNet
@@ -22,6 +23,7 @@ _REGISTRY: dict[str, type[nn.Module]] = {
     "iterative_refinement": IterativeRefinementTriangularizer,
     "iterative_refinement_ortho": IterativeRefinementOrtho,
     "equivariant_matrix_net": EquivariantMatrixNet,
+    "cross_attn_triangularizer": CrossAttnTriangularizer,
 }
 
 
@@ -48,4 +50,5 @@ __all__ = [
     "IterativeRefinementTriangularizer",
     "IterativeRefinementOrtho",
     "EquivariantMatrixNet",
+    "CrossAttnTriangularizer",
 ]

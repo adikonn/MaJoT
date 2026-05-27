@@ -27,6 +27,7 @@ import torch.nn as nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.models.cross_attn_triangularizer import CrossAttnTriangularizer
 from src.models.dual_stream_rowcol import DualStreamRowCol
 from src.models.dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from src.models.equivariant_matrix_net import EquivariantMatrixNet
@@ -61,6 +62,10 @@ def _factory_equivariant_matrix_net() -> nn.Module:
     return EquivariantMatrixNet(hidden_dim=16, num_layers=2)
 
 
+def _factory_cross_attn_triangularizer() -> nn.Module:
+    return CrossAttnTriangularizer(hidden_dim=16, num_heads=2)
+
+
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("dual_stream_rowcol", _factory_dual_stream_rowcol),
     ("dual_stream_rowcol_ortho", _factory_dual_stream_rowcol_ortho),
@@ -68,6 +73,7 @@ MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("iterative_refinement_ortho", _factory_iterative_refinement_ortho),
     ("matrix_transformer_ortho", _factory_matrix_transformer_ortho),
     ("equivariant_matrix_net", _factory_equivariant_matrix_net),
+    ("cross_attn_triangularizer", _factory_cross_attn_triangularizer),
 ]
 
 # Matrix sizes used by parametrized universal tests. Any registered model must
