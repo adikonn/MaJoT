@@ -31,6 +31,7 @@ from src.models.dual_stream_rowcol import DualStreamRowCol
 from src.models.dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from src.models.iterative_refinement import IterativeRefinementTriangularizer
 from src.models.iterative_refinement_ortho import IterativeRefinementOrtho
+from src.models.learned_givens import LearnedGivens
 from src.models.matrix_transformer_ortho import MatrixTransformerOrtho
 
 # ---------------------------------------------------------------------------
@@ -56,12 +57,18 @@ def _factory_matrix_transformer_ortho() -> nn.Module:
     return MatrixTransformerOrtho(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
 
+def _factory_learned_givens() -> nn.Module:
+    # Keep it small for tests.
+    return LearnedGivens(hidden_dim=32, num_heads=2, num_layers=2, max_n=16, num_rotations=32)
+
+
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("dual_stream_rowcol", _factory_dual_stream_rowcol),
     ("dual_stream_rowcol_ortho", _factory_dual_stream_rowcol_ortho),
     ("iterative_refinement", _factory_iterative_refinement),
     ("iterative_refinement_ortho", _factory_iterative_refinement_ortho),
     ("matrix_transformer_ortho", _factory_matrix_transformer_ortho),
+    ("learned_givens", _factory_learned_givens),
 ]
 
 # Matrix sizes used by parametrized universal tests. Any registered model must
