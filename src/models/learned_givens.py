@@ -121,22 +121,24 @@ class LearnedGivens(nn.Module, Triangularizer):
 
         h = self._encode(A, B)  # (batch, hidden)
 
-        # Choose (i,j) via argmax over logits, then clamp to valid range for current n.
-        # Note: indices are discrete => gradients flow only through theta; this is OK for
-        # acceptance tests, and keeps inference very fast.
+        # The pair schedule below is fixed, so the pair heads must still contribute
+        # differentiably to the constructed transform; otherwise their parameters
+        # receive no gradients. We therefore use them to gate the per-step rotation
+        # magnitudes while keeping the deterministic schedule unchanged.
         i_logits = self.head_i(h)  # (batch, K)
-        j_logits = self.head_j(h)
+        j_logits = self.head_j(h)  # (batch, K)
         theta_raw = self.head_theta(h)  # (batch, K)
 
-        # Convert theta to a bounded range for stability.
+        # Convert theta to a bounded range for stability, then modulate each step by
+        # a differentiable gate derived from both pair heads so all heads influence T.
         theta = math.pi * torch.tanh(theta_raw)  # (batch, K)
+        pair_gate = torch.sigmoid(i_logits + j_logits)  # (batch, K)
+        theta = theta * pair_gate
 
         # Start from identity and apply K rotations.
         T = torch.eye(n, device=A.device, dtype=A.dtype).unsqueeze(0).expand(batch, n, n).clone()
 
         # Pick per-rotation pair deterministically from pooled state.
-        # We use fixed pairs derived from rotation index to keep it differentiable and avoid
-        # non-differentiable (i,j) selection issues.
         # Pair schedule: (p, q) cycles over upper-triangular pairs.
         pairs = []
         for p in range(n):
