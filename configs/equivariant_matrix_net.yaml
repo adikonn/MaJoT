@@ -1,26 +1,51 @@
+# Конфиг для обучения EquivariantMatrixNet.
+# Модель — permutation-equivariant сеть на 1x1 свёртках (DeepSets/PointNet) с
+# агрегацией по строкам и столбцам. Число параметров НЕ зависит от n, поэтому
+# можно учить на смеси разных размеров и обобщать на новые n.
+# Выход T = final_proj(x) + I; на инференсе find_transform жёстко ортогонализует
+# T через QR, поэтому lambda_orth держим высоким — чтобы сырое T уже было близко
+# к ортогональному и QR его не искажал.
+#
+# Запуск:
+#   python scripts/train.py --config configs/equivariant_matrix_net.yaml
+#   python scripts/train.py --config configs/equivariant_matrix_net.yaml \
+#       --override training.lr=1e-4 wandb.mode=offline
+
+experiment_name: equivariant_matrix_net_v1
 seed: 42
-experiment_name: "exp-1-equivariant_matrix_net"
+device: cuda
+checkpoint_dir: checkpoints/equivariant_matrix_net_v1
 
 model:
-  name: "equivariant_matrix_net"
+  name: equivariant_matrix_net
+  # Конструктор принимает только hidden_dim и num_layers.
   hidden_dim: 128
   num_layers: 4
 
+data:
+  # Параметры не зависят от n, поэтому даём широкий спектр размеров для обобщения.
+  ns: [4, 6, 8, 12, 16]
+  types: ["perfect", "noisy", "random"]
+  noise_level: 1.0e-3
+  samples_per_n_per_type: 3000
+  val_fraction: 0.1
+  # В модели есть BatchNorm2d — держим батч достаточно большим для стабильной
+  # статистики (сэмплер группирует по одинаковому n, так что батч однороден).
+  batch_size: 64
+  seed: 42
+  test_samples_per_n_per_type: 200
+  test_seed: 999
+
 training:
-  epochs: 50
+  epochs: 100
   lr: 3.0e-4
   weight_decay: 1.0e-5
-  lambda_orth: 10.0
-
-data:
-  batch_size: 32
-  ns: [4, 8, 16]
-  types: ["perfect", "noisy", "random"]
-  samples_per_n_per_type: 1000
-  val_fraction: 0.1
-  noise_level: 0.001
-  seed: 42
+  lambda_orth: 10.0      # сильно тянем T к ортогональной (инференс делает QR)
+  grad_clip: 1.0
+  scheduler: cosine
 
 wandb:
-  project: "majot"
-  mode: "online"
+  project: majot
+  entity: null           # задать через WANDB_ENTITY или --override wandb.entity=...
+  mode: online
+  tags: ["equivariant_matrix_net", "equivariant_matrix_net_v1"]
