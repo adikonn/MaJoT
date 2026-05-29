@@ -33,6 +33,7 @@ from src.models.dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from src.models.equivariant_matrix_net import EquivariantMatrixNet
 from src.models.iterative_refinement import IterativeRefinementTriangularizer
 from src.models.iterative_refinement_ortho import IterativeRefinementOrtho
+from src.models.learned_givens import LearnedGivens
 from src.models.matrix_transformer_ortho import MatrixTransformerOrtho
 
 # ---------------------------------------------------------------------------
@@ -64,6 +65,9 @@ def _factory_equivariant_matrix_net() -> nn.Module:
 
 def _factory_cross_attn_triangularizer() -> nn.Module:
     return CrossAttnTriangularizer(hidden_dim=16, num_heads=2)
+def _factory_learned_givens() -> nn.Module:
+    # Keep it small for tests.
+    return LearnedGivens(hidden_dim=32, num_heads=2, num_layers=2, max_n=16, num_rotations=32)
 
 
 MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
@@ -74,6 +78,7 @@ MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("matrix_transformer_ortho", _factory_matrix_transformer_ortho),
     ("equivariant_matrix_net", _factory_equivariant_matrix_net),
     ("cross_attn_triangularizer", _factory_cross_attn_triangularizer),
+    ("learned_givens", _factory_learned_givens),
 ]
 
 # Matrix sizes used by parametrized universal tests. Any registered model must

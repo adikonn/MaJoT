@@ -12,6 +12,7 @@ from .dual_stream_rowcol_ortho import DualStreamRowColOrtho
 from .equivariant_matrix_net import EquivariantMatrixNet
 from .iterative_refinement import IterativeRefinementTriangularizer
 from .iterative_refinement_ortho import IterativeRefinementOrtho
+from .learned_givens import LearnedGivens
 from .matrix_transformer import MatrixTransformer
 from .matrix_transformer_ortho import MatrixTransformerOrtho
 
@@ -24,6 +25,7 @@ _REGISTRY: dict[str, type[nn.Module]] = {
     "iterative_refinement_ortho": IterativeRefinementOrtho,
     "equivariant_matrix_net": EquivariantMatrixNet,
     "cross_attn_triangularizer": CrossAttnTriangularizer,
+    "learned_givens": LearnedGivens,
 }
 
 
@@ -51,4 +53,6 @@ __all__ = [
     "IterativeRefinementOrtho",
     "EquivariantMatrixNet",
     "CrossAttnTriangularizer",
+]
+    "LearnedGivens",
 ]
