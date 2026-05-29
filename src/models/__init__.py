@@ -53,6 +53,5 @@ __all__ = [
     "IterativeRefinementOrtho",
     "EquivariantMatrixNet",
     "CrossAttnTriangularizer",
-]
     "LearnedGivens",
 ]
