@@ -27,8 +27,10 @@ import torch.nn as nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.models.cross_attn_triangularizer import CrossAttnTriangularizer
 from src.models.dual_stream_rowcol import DualStreamRowCol
 from src.models.dual_stream_rowcol_ortho import DualStreamRowColOrtho
+from src.models.equivariant_matrix_net import EquivariantMatrixNet
 from src.models.iterative_refinement import IterativeRefinementTriangularizer
 from src.models.iterative_refinement_ortho import IterativeRefinementOrtho
 from src.models.learned_givens import LearnedGivens
@@ -57,6 +59,12 @@ def _factory_matrix_transformer_ortho() -> nn.Module:
     return MatrixTransformerOrtho(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
 
+def _factory_equivariant_matrix_net() -> nn.Module:
+    return EquivariantMatrixNet(hidden_dim=16, num_layers=2)
+
+
+def _factory_cross_attn_triangularizer() -> nn.Module:
+    return CrossAttnTriangularizer(hidden_dim=16, num_heads=2)
 def _factory_learned_givens() -> nn.Module:
     # Keep it small for tests.
     return LearnedGivens(hidden_dim=32, num_heads=2, num_layers=2, max_n=16, num_rotations=32)
@@ -68,6 +76,8 @@ MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("iterative_refinement", _factory_iterative_refinement),
     ("iterative_refinement_ortho", _factory_iterative_refinement_ortho),
     ("matrix_transformer_ortho", _factory_matrix_transformer_ortho),
+    ("equivariant_matrix_net", _factory_equivariant_matrix_net),
+    ("cross_attn_triangularizer", _factory_cross_attn_triangularizer),
     ("learned_givens", _factory_learned_givens),
 ]
 
