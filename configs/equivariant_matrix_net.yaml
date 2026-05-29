@@ -1,0 +1,26 @@
+seed: 42
+experiment_name: "exp-1-equivariant_matrix_net"
+
+model:
+  name: "equivariant_matrix_net"
+  hidden_dim: 128
+  num_layers: 4
+
+training:
+  epochs: 50
+  lr: 3.0e-4
+  weight_decay: 1.0e-5
+  lambda_orth: 10.0
+
+data:
+  batch_size: 32
+  ns: [4, 8, 16]
+  types: ["perfect", "noisy", "random"]
+  samples_per_n_per_type: 1000
+  val_fraction: 0.1
+  noise_level: 0.001
+  seed: 42
+
+wandb:
+  project: "majot"
+  mode: "online"
