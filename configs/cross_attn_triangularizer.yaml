@@ -1,23 +1,50 @@
-experiment_name: "cross_attn_v1"
+# Конфиг для обучения CrossAttnTriangularizer.
+# Модель строит признаки из (значение, координата i, координата j) для каждого
+# элемента матрицы и применяет симметричное cross-attention между A и B, выдавая
+# T = out + I. Ортогональность НЕ зашита в архитектуру, поэтому lambda_orth должен
+# быть ненулевым — иначе T может схлопнуться.
+#
+# Запуск:
+#   python scripts/train.py --config configs/cross_attn_triangularizer.yaml
+#   python scripts/train.py --config configs/cross_attn_triangularizer.yaml \
+#       --override training.lr=3e-4 wandb.mode=offline
+
+experiment_name: cross_attn_v1
 seed: 42
+device: cuda
+checkpoint_dir: checkpoints/cross_attn_v1
 
 model:
-  name: "cross_attn_triangularizer"
-  hidden_dim: 64
-  num_heads: 4
+  name: cross_attn_triangularizer
+  # ВНИМАНИЕ: конструктор принимает только hidden_dim и num_heads.
+  # Любые другие ключи будут переданы как kwargs и приведут к ошибке.
+  hidden_dim: 128      # должно делиться на num_heads
+  num_heads: 8
 
 data:
-  ns: [10, 20, 30] 
-  batch_size: 32
+  # Внимание работает по n*n токенам, поэтому стоимость растёт как (n*n)^2.
+  # Держим n умеренными, чтобы attention оставался дешёвым.
+  ns: [4, 6, 8, 10]
   types: ["perfect", "noisy", "random"]
-  samples_per_n_per_type: 100
+  noise_level: 1.0e-3
+  samples_per_n_per_type: 4000
   val_fraction: 0.1
+  batch_size: 64
+  seed: 42
+  # Детерминированный тестовый набор для бенчмарка (scripts/prepare_dataset.py).
+  test_samples_per_n_per_type: 200
+  test_seed: 999
 
 training:
-  epochs: 2
-  lr: 0.001
-  lambda_orth: 1.0
+  epochs: 100
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  lambda_orth: 1.0       # удерживает T близким к ортогональной матрице
+  grad_clip: 1.0
+  scheduler: cosine
 
 wandb:
-  project: "majot"
-  mode: "online"
+  project: majot
+  entity: null           # задать через WANDB_ENTITY или --override wandb.entity=...
+  mode: online
+  tags: ["cross_attn_triangularizer", "cross_attn_v1"]
