@@ -1,0 +1,62 @@
+# Прод-конфиг для MatrixTransformerOrtho — основная модель проекта.
+# Цель: перегнать классические бейзлайны (Jacobi / Pencil-Schur) по качеству
+# триангуляризации. Рассчитан на одну GPU H200 или A100-80GB.
+#
+# Запуск:
+#   python scripts/train.py --config configs/matrix_transformer_ortho_prod.yaml
+#
+# Полезные оверрайды:
+#   # быстрый смоук-тест перед длинным запуском (3 эпохи, мало данных, без wandb)
+#   python scripts/train.py --config configs/matrix_transformer_ortho_prod.yaml \
+#       --override training.epochs=3 data.samples_per_n_per_type=2000 wandb.mode=disabled
+#
+#   # если упёрлись в RAM при генерации датасета — уменьшить выборку
+#   python scripts/train.py --config configs/matrix_transformer_ortho_prod.yaml \
+#       --override data.samples_per_n_per_type=30000
+
+experiment_name: matrix_transformer_ortho_prod_v1
+seed: 42
+device: cuda
+checkpoint_dir: checkpoints/matrix_transformer_ortho_prod_v1
+
+model:
+  name: matrix_transformer_ortho
+  # Заметно крупнее дефолта (128/4/3): на 80GB места с запасом, матрицы маленькие.
+  hidden_dim: 256
+  num_heads: 8
+  num_layers: 6
+  max_n: 32          # держим запас над максимальным n в data.ns
+  dropout: 0.0       # регрессия на свежесгенерированных данных — регуляризация не нужна
+  ffn_mult: 4
+
+data:
+  # Широкий спектр размеров: учим обобщению и проверяем масштабирование качества с n.
+  ns: [4, 6, 8, 12, 16]
+  types: ["perfect", "noisy"]   # random не приводим ортогональным T — исключаем
+  noise_level: 1.0e-3
+  # 50k на (n,type) => 50000 * 5 * 2 = 500k сэмплов.
+  # Генерируются в RAM однопоточно (QR на CPU) — пара минут до старта, ~неск. ГБ RAM.
+  samples_per_n_per_type: 50000
+  val_fraction: 0.05
+  # Сэмплер группирует батч по одинаковому n, так что батч однороден.
+  # На 80GB матрицы крошечные — узкое место не память, а оверхед даталоадера, держим крупный батч.
+  batch_size: 256
+  seed: 42
+  test_samples_per_n_per_type: 500
+  test_seed: 999
+
+training:
+  epochs: 150
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  # T = matrix_exp(skew) ортогональна ТОЧНО по построению — штраф ортогональности
+  # тождественно ~0 и только тратит градиент. Весь сигнал идёт в loss_tri.
+  lambda_orth: 0
+  grad_clip: 1.0
+  scheduler: cosine   # cosine | null
+
+wandb:
+  project: majot
+  entity: null         # задать через WANDB_ENTITY или --override wandb.entity=...
+  mode: online
+  tags: ["matrix_transformer_ortho", "prod", "beat_baselines"]
