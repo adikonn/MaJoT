@@ -124,12 +124,16 @@ def _best_givens_for_pair_min_full_residual(
     return best_c, best_s
 
 
-def joint_triangularize(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
+def joint_triangularize(
+    A: torch.Tensor, B: torch.Tensor, max_sweeps: int = 200
+) -> torch.Tensor:
     """
     Бейзлайн 3: Jacobi-подобный итеративный метод.
     Args:
         A: torch.Tensor, квадратная матрица размера (n, n)
         B: torch.Tensor, квадратная матрица размера (n, n)
+        max_sweeps: int, лимит полных проходов по парам поддиагонали. Для гибрида
+            с тёплым стартом задаётся малым (1–3): из хорошего старта свипов нужно мало.
 
     Returns:
         Q: torch.Tensor, ортогональная матрица размера (n, n)
@@ -166,8 +170,7 @@ def joint_triangularize(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
     if n <= 1:
         return Q
 
-    # Параметры остановки: лимит проходов, сетка углов, терпение к «застою»
-    max_sweeps = 200
+    # Параметры остановки: сетка углов, терпение к «застою» (лимит проходов — аргумент)
     n_angle_grid = 72
     stagnation_patience = 3
     finfo = torch.finfo(work_dtype)
