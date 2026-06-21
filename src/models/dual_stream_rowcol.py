@@ -1,27 +1,10 @@
-"""DualStreamRowCol: раздельные энкодеры строк/столбцов с cross-attention для совместной триангуляции.
-
-Идея архитектуры:
-    У матрицы есть естественная структура строк и столбцов. Вместо одной длинной
-    последовательности из n^2 токенов (как в MatrixTransformer) кодируем каждую строку
-    и каждый столбец как короткую последовательность пар (A_ij, B_ij), применяем
-    self-attention вдоль ортогональной оси, затем cross-attention между осями и
-    уточняющий transformer на сетке n×n. Выход: T = I + δ, на старте T = I.
-
-Почему подходит задаче:
-    Совместная триангуляция — глобальное согласованное преобразование; виды «по строкам»
-    и «по столбцам» дают дополняющий контекст. Cross-attention связывает оси за O(n)
-    токенов на ось, а не за O(n^2).
-
-Допущения:
-    n <= max_n (таблицы позиционных эмбеддингов). T не ограничена O(n) на инференсе;
-    ортогональность задаётся только штрафом L_orth при обучении.
-"""
+"""DualStreamRowCol: раздельные энкодеры строк/столбцов с cross-attention."""
 from __future__ import annotations
 
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .base import Triangularizer
 
@@ -56,7 +39,7 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         max_n: int = 32,
         dropout: float = 0.0,
         ffn_mult: int = 4,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.max_n = max_n
@@ -71,7 +54,7 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         self.col_encoder = nn.TransformerEncoder(col_layer, num_layers=num_layers)
 
         self.cross_attn = nn.MultiheadAttention(
-            hidden_dim, num_heads, dropout=dropout, batch_first=True
+            hidden_dim, num_heads, dropout=dropout, batch_first=True,
         )
         self.cross_norm = nn.LayerNorm(hidden_dim)
 
@@ -79,11 +62,9 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         refine_layer = _make_encoder_layer(hidden_dim, num_heads, ffn_mult, dropout)
         self.grid_refine = nn.TransformerEncoder(refine_layer, num_layers=refine_layers)
 
-        # Взвешенное усреднение вдоль оси (вместо простого mean) — больше выразительности.
         self.row_pool = nn.Linear(hidden_dim, 1)
         self.col_pool = nn.Linear(hidden_dim, 1)
 
-        # Нулевая инициализация головы => δ = 0 => T = I в начале обучения.
         self.delta_head = nn.Linear(hidden_dim, 1)
         nn.init.zeros_(self.delta_head.weight)
         nn.init.zeros_(self.delta_head.bias)
@@ -95,9 +76,10 @@ class DualStreamRowCol(nn.Module, Triangularizer):
 
     def _positional_features(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
         """Признаки по ячейкам: (batch, n, n, hidden_dim)."""
-        batch, n, _ = A.shape
+        _batch, n, _ = A.shape
         if n > self.max_n:
-            raise ValueError(f"n={n} превышает max_n={self.max_n}")
+            msg = f"n={n} превышает max_n={self.max_n}"
+            raise ValueError(msg)
 
         device = A.device
         pair = torch.stack([A, B], dim=-1)
@@ -106,11 +88,9 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         i_idx = torch.arange(n, device=device)
         j_idx = torch.arange(n, device=device)
         h = h + self.row_embed(i_idx).unsqueeze(0).unsqueeze(2)
-        h = h + self.col_embed(j_idx).unsqueeze(0).unsqueeze(1)
-        return h
+        return h + self.col_embed(j_idx).unsqueeze(0).unsqueeze(1)
 
     def _encode_rows(self, h: torch.Tensor) -> torch.Tensor:
-        """Self-attention вдоль столбцов внутри каждой строки -> (batch, n, H)."""
         batch, n, _, hidden = h.shape
         seq = h.reshape(batch * n, n, hidden)
         out = self.row_encoder(seq)
@@ -118,7 +98,6 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         return pooled.reshape(batch, n, hidden)
 
     def _encode_cols(self, h: torch.Tensor) -> torch.Tensor:
-        """Self-attention вдоль строк внутри каждого столбца -> (batch, n, H)."""
         batch, n, _, hidden = h.shape
         seq = h.permute(0, 2, 1, 3).reshape(batch * n, n, hidden)
         out = self.col_encoder(seq)
@@ -126,7 +105,6 @@ class DualStreamRowCol(nn.Module, Triangularizer):
         return pooled.reshape(batch, n, hidden)
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-        """A, B: (batch, n, n) или (n, n). Возвращает T той же формы."""
         squeeze = False
         if A.dim() == 2:
             A = A.unsqueeze(0)

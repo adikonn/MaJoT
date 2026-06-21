@@ -27,12 +27,10 @@ def evaluate_transform(T: torch.Tensor, A: torch.Tensor, B: torch.Tensor) -> dic
         "lower_norm_A": float(torch.tril(Ap, diagonal=-1).norm()),
         "lower_norm_B": float(torch.tril(Bp, diagonal=-1).norm()),
     }
-    # Conditioning of T: how far we are from singular.
     try:
         metrics["T_cond"] = float(torch.linalg.cond(T))
     except Exception:
         metrics["T_cond"] = float("inf")
-    # Orthogonality residual.
     n = T.shape[-1]
     eye = torch.eye(n, device=T.device, dtype=T.dtype)
     metrics["orth_residual"] = float((T.transpose(-1, -2) @ T - eye).norm())

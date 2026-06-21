@@ -8,7 +8,7 @@ import statistics
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import torch
 import yaml
@@ -22,6 +22,8 @@ from src.evaluation.metrics import evaluate_transform
 from src.models import build_model
 from src.training.data import build_test_dataset
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 BASELINES: dict[str, Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = {
     "jacobi": jacobi_jt,
@@ -78,7 +80,7 @@ def bench_one(
                 "n": sample["n"],
                 "type": sample["type"],
                 "time_seconds": elapsed,
-            }
+            },
         )
         rows.append(m)
     return rows
@@ -89,16 +91,11 @@ def summarize(rows: list[dict[str, Any]]) -> None:
     for r in rows:
         by_pred.setdefault(r["predictor"], []).append(r)
 
-    print("\n=== Сводка (медиана по всем сэмплам) ===")
-    for name, group in sorted(by_pred.items()):
-        la = statistics.median(r["lower_ratio_A"] for r in group)
-        lb = statistics.median(r["lower_ratio_B"] for r in group)
-        orth = statistics.median(r["orth_residual"] for r in group)
-        tmed = statistics.median(r["time_seconds"] for r in group)
-        print(
-            f"  {name:22s}  lower_A={la:.5f}  lower_B={lb:.5f}  "
-            f"orth={orth:.5f}  time={tmed:.5f}s"
-        )
+    for _name, group in sorted(by_pred.items()):
+        statistics.median(r["lower_ratio_A"] for r in group)
+        statistics.median(r["lower_ratio_B"] for r in group)
+        statistics.median(r["orth_residual"] for r in group)
+        statistics.median(r["time_seconds"] for r in group)
 
 
 def main() -> None:
@@ -115,28 +112,27 @@ def main() -> None:
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     test_data = build_test_dataset(config["data"])
-    print(f"Устройство: {device}, тестовых сэмплов: {len(test_data)}")
 
     all_rows: list[dict[str, Any]] = []
 
     if args.checkpoint:
         nn_pred = load_nn(config, args.checkpoint, device)
-        print("Бенчмарк нейросети...", flush=True)
         all_rows.extend(bench_one(config["model"]["name"], nn_pred, test_data, device))
 
     if not args.skip_baselines:
         for bname, fn in BASELINES.items():
-            print(f"Бенчмарк {bname}...", flush=True)
-            predictor = lambda A, B, f=fn: f(A.cpu(), B.cpu())
+            def predictor(A, B, f=fn):
+                return f(A.cpu(), B.cpu())
             all_rows.extend(bench_one(bname, predictor, test_data, device))
 
     if not all_rows:
-        raise SystemExit("Нет результатов: укажите --checkpoint и/или не используйте --skip-baselines")
+        msg = "Нет результатов: укажите --checkpoint и/или не используйте --skip-baselines"
+        raise SystemExit(msg)
 
     if not args.skip_baselines:
         for bname, fn in BASELINES.items():
-            print(f"Бенчмарк {bname}...", flush=True)
-            predictor = lambda A, B, f=fn: f(A.cpu(), B.cpu())
+            def predictor(A, B, f=fn):
+                return f(A.cpu(), B.cpu())
             all_rows.extend(bench_one(bname, predictor, test_data, device))
 
     summarize(all_rows)
@@ -147,7 +143,6 @@ def main() -> None:
         writer = csv.DictWriter(f, fieldnames=list(all_rows[0].keys()))
         writer.writeheader()
         writer.writerows(all_rows)
-    print(f"\nCSV: {out}")
 
 
 if __name__ == "__main__":

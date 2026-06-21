@@ -6,7 +6,10 @@ method so that `scripts/benchmark.py` can evaluate them uniformly.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-import torch
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
 
 
 class Triangularizer(ABC):

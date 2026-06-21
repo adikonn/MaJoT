@@ -1,15 +1,18 @@
 """Training loop with wandb logging and best-checkpoint tracking."""
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
-import wandb
-from torch.utils.data import DataLoader
 
+import wandb
 from src.evaluation.metrics import evaluate_transform
 from src.training.losses import total_loss
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from torch.utils.data import DataLoader
 
 
 def _aggregate(metrics_list: list[dict[str, float]]) -> dict[str, float]:
@@ -60,7 +63,6 @@ def validate(
         T = model(A, B)
         loss, components = total_loss(T, A, B, lambda_orth=lambda_orth)
         m = {"loss_total": float(loss.detach()), **components}
-        # Per-sample geometric metrics on the first item of the batch.
         m.update(evaluate_transform(T[0], A[0], B[0]))
         metrics.append(m)
     return _aggregate(metrics)
@@ -83,7 +85,7 @@ def train(
     scheduler = None
     if tcfg.get("scheduler") == "cosine":
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=tcfg["epochs"]
+            optimizer, T_max=tcfg["epochs"],
         )
 
     lambda_orth = tcfg["lambda_orth"]
@@ -116,12 +118,5 @@ def train(
             wandb.run.summary["best_val_loss"] = best_val
             wandb.run.summary["best_epoch"] = epoch
 
-        print(
-            f"epoch {epoch:4d} | "
-            f"train loss {train_m['loss_total']:.6f} | "
-            f"val loss {val_m['loss_total']:.6f} | "
-            f"val lower_A {val_m['lower_ratio_A']:.4f} | "
-            f"val lower_B {val_m['lower_ratio_B']:.4f}"
-        )
 
     wandb.save(str(best_path), policy="now")

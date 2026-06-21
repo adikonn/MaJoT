@@ -18,13 +18,13 @@ from pathlib import Path
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # для multistart_probe
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from src.models import build_model
-from src.dataset.generate_data import generate_perfect, generate_noisy
-from src.evaluation.metrics import lower_norm_ratio
+
 from src.baseline.jacobi_type import joint_triangularize
-from multistart_probe import multistart
+from src.dataset.generate_data import generate_noisy, generate_perfect
+from src.evaluation.metrics import lower_norm_ratio
+from src.models import build_model
 
 
 def lr_pair(T, A, B):
@@ -33,7 +33,7 @@ def lr_pair(T, A, B):
     return 0.5 * (lower_norm_ratio(Ap) + lower_norm_ratio(Bp))
 
 
-def main():
+def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(
         "checkpoints/matrix_transformer_ortho_prod_v1/best_model.pt",
@@ -49,21 +49,16 @@ def main():
     per_n = 2
 
     torch.manual_seed(7)
-    for typ, gen in [("perfect", lambda n: generate_perfect(n)),
+    for _typ, gen in [("perfect", generate_perfect),
                      ("noisy", lambda n: generate_noisy(n, noise_level=1e-3))]:
-        print(f"\n=== {typ} (per_n={per_n}, K={K}) ===")
-        cols = ["multistart"] + [f"hybrid S={s}" for s in sweeps] + ["jacobi(full)"]
-        print("  n   " + "".join(f"{c:<16}" for c in cols) + "   (mean lower_ratio | ms/sample)")
+        ["multistart"] + [f"hybrid S={s}" for s in sweeps] + ["jacobi(full)"]
         for n in ns:
             pairs = [gen(n) for _ in range(per_n)]
             A = torch.stack([p[0] for p in pairs]).to(device)
             B = torch.stack([p[1] for p in pairs]).to(device)
 
-            # --- multi-start (batched) ---
             if device.type == "cuda": torch.cuda.synchronize()
             t = time.perf_counter()
-            # получаем best-of-K T0 покандидатно: переиспользуем multistart, но нам нужен сам T0,
-            # поэтому считаем кандидатов и выбираем лучший вручную
             best_lr = None; T0 = None
             for k in range(K):
                 if k == 0:
@@ -87,7 +82,6 @@ def main():
 
             results = [(lr_ms, ms_ms)]
 
-            # --- hybrid: warm-start -> Jacobi capped (per-sample, CPU loop) ---
             Acpu, Bcpu, T0cpu = A.cpu(), B.cpu(), T0.cpu()
             for S in sweeps:
                 t = time.perf_counter()
@@ -101,7 +95,6 @@ def main():
                 hy_ms = (time.perf_counter() - t) / A.shape[0] * 1000 + ms_ms
                 results.append((sum(lrs) / len(lrs), hy_ms))
 
-            # --- plain Jacobi from scratch (reference) ---
             t = time.perf_counter()
             lrs = []
             for i in range(A.shape[0]):
@@ -110,8 +103,7 @@ def main():
             jac_ms = (time.perf_counter() - t) / A.shape[0] * 1000
             results.append((sum(lrs) / len(lrs), jac_ms))
 
-            cells = "".join(f"{lr:.3f}|{ms:6.1f}ms ".ljust(16) for lr, ms in results)
-            print(f"  {n:<4}" + cells)
+            "".join(f"{lr:.3f}|{ms:6.1f}ms ".ljust(16) for lr, ms in results)
 
 
 if __name__ == "__main__":

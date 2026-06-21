@@ -9,8 +9,7 @@ import torch
 
 
 def _lower_tri_residual_squared(A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-    """
-    Квадрат нормы Фробениуса строго нижнего треугольника для A и B (вместе).
+    """Квадрат нормы Фробениуса строго нижнего треугольника для A и B (вместе).
 
     Берём только элементы с индексами (p, q), где p > q — то, что хотим
     уменьшить, чтобы матрицы стали ближе к верхнетреугольным.
@@ -23,10 +22,9 @@ def _lower_tri_residual_squared(A: torch.Tensor, B: torch.Tensor) -> torch.Tenso
 
 
 def _similarity_givens_inplace(
-    M: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor
+    M: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor,
 ) -> None:
-    """
-    Сходство: M <- G^T M G.
+    """Сходство: M <- G^T M G.
 
     G — вращение в плоскости индексов (j, i), при этом j < i.
     Встроенный 2×2 блок: G2 = [[c, -s], [s, c]] (ортогональная матрица с det=1).
@@ -49,10 +47,9 @@ def _similarity_givens_inplace(
 
 
 def _right_multiply_givens_inplace(
-    Q: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor
+    Q: torch.Tensor, j: int, i: int, c: torch.Tensor, s: torch.Tensor,
 ) -> None:
-    """
-    Накопление ортогонального преобразования: Q <- Q G.
+    """Накопление ортогонального преобразования: Q <- Q G.
 
     Тот же G, что в _similarity_givens_inplace: правое умножение смешивает
     только столбцы j и i матрицы Q.
@@ -70,8 +67,7 @@ def _best_givens_for_pair_min_full_residual(
     i: int,
     n_angles: int,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """
-    Подобрать cos, sin для пары (j, i) по полному нижнетреугольному residual.
+    """Подобрать cos, sin для пары (j, i) по полному нижнетреугольному residual.
 
     Для каждого угла из сетки (включая 0 → тождественное вращение) временно
     восстанавливаем состояние пары матриц на начало шага, применяем сходство
@@ -125,10 +121,10 @@ def _best_givens_for_pair_min_full_residual(
 
 
 def joint_triangularize(
-    A: torch.Tensor, B: torch.Tensor, max_sweeps: int = 200
+    A: torch.Tensor, B: torch.Tensor, max_sweeps: int = 200,
 ) -> torch.Tensor:
-    """
-    Бейзлайн 3: Jacobi-подобный итеративный метод.
+    """Бейзлайн 3: Jacobi-подобный итеративный метод.
+
     Args:
         A: torch.Tensor, квадратная матрица размера (n, n)
         B: torch.Tensor, квадратная матрица размера (n, n)
@@ -144,17 +140,22 @@ def joint_triangularize(
 
     Подбор угла для пары матриц делается по **полному** нижнетреугольному residual,
     а не по одному элементу (i, j), чтобы один шаг не раздувал общий остаток.
+
     """
-    assert A.ndim == 2 and B.ndim == 2
+    assert A.ndim == 2
+    assert B.ndim == 2
     assert A.shape == B.shape
     assert A.shape[0] == A.shape[1]
 
     # torch.finfo и тригонометрия — только для float; комплексные и целые не поддерживаем
     if not A.dtype.is_floating_point or not B.dtype.is_floating_point:
-        raise TypeError(
+        msg = (
             "joint_triangularize: ожидаются матрицы с dtype с плавающей точкой "
             "(float16 / bfloat16 / float32 / float64), получено "
             f"A.dtype={A.dtype}, B.dtype={B.dtype}."
+        )
+        raise TypeError(
+            msg,
         )
 
     n = A.shape[0]
@@ -189,7 +190,7 @@ def joint_triangularize(
             for j in range(i):
                 # Угол минимизирует полный нижнетреугольный residual после пары (включая «не крутить»)
                 c, s = _best_givens_for_pair_min_full_residual(
-                    A_curr, B_curr, j, i, n_angle_grid
+                    A_curr, B_curr, j, i, n_angle_grid,
                 )
                 # Одно и то же сходство к обеим матрицам
                 _similarity_givens_inplace(A_curr, j, i, c, s)

@@ -1,9 +1,7 @@
 """Model registry. Add new architectures here so that train.py can pick them up by name."""
 from __future__ import annotations
 
-from typing import Any
-
-import torch.nn as nn
+from typing import TYPE_CHECKING, Any
 
 from .base import Triangularizer
 from .cross_attn_triangularizer import CrossAttnTriangularizer
@@ -15,6 +13,9 @@ from .iterative_refinement_ortho import IterativeRefinementOrtho
 from .learned_givens import LearnedGivens
 from .matrix_transformer import MatrixTransformer
 from .matrix_transformer_ortho import MatrixTransformerOrtho
+
+if TYPE_CHECKING:
+    from torch import nn
 
 _REGISTRY: dict[str, type[nn.Module]] = {
     "matrix_transformer": MatrixTransformer,
@@ -38,20 +39,21 @@ def build_model(model_cfg: dict[str, Any]) -> nn.Module:
     cfg = dict(model_cfg)
     name = cfg.pop("name")
     if name not in _REGISTRY:
-        raise KeyError(f"Unknown model '{name}'. Registered: {list(_REGISTRY)}")
+        msg = f"Unknown model '{name}'. Registered: {list(_REGISTRY)}"
+        raise KeyError(msg)
     return _REGISTRY[name](**cfg)
 
 
 __all__ = [
-    "build_model",
-    "Triangularizer",
-    "MatrixTransformer",
-    "MatrixTransformerOrtho",
+    "CrossAttnTriangularizer",
     "DualStreamRowCol",
     "DualStreamRowColOrtho",
-    "IterativeRefinementTriangularizer",
-    "IterativeRefinementOrtho",
     "EquivariantMatrixNet",
-    "CrossAttnTriangularizer",
+    "IterativeRefinementOrtho",
+    "IterativeRefinementTriangularizer",
     "LearnedGivens",
+    "MatrixTransformer",
+    "MatrixTransformerOrtho",
+    "Triangularizer",
+    "build_model",
 ]

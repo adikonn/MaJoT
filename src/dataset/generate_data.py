@@ -1,22 +1,13 @@
-import os
 import torch
-
 
 MATRIX_TYPES = ("perfect", "noisy", "random")
 DEFAULT_NOISE_LEVEL = 1e-3
-
-
 def generate_perfect(n, dtype=torch.float32):
-    # Генерируем случайную ортогональную матрицу Q через QR-разложение
     H = torch.randn(n, n, dtype=dtype)
     Q, R = torch.linalg.qr(H)
-    Q = Q * torch.sign(torch.diag(R))   # теперь Q ~ Haar на O(n)
-
-    # Случайные верхнетреугольные матрицы
+    Q = Q * torch.sign(torch.diag(R))
     T_A = torch.triu(torch.randn(n, n, dtype=dtype))
     T_B = torch.triu(torch.randn(n, n, dtype=dtype))
-
-    # A = Q * T_A * Q^T
     matrix_a = Q @ T_A @ Q.T
     matrix_b = Q @ T_B @ Q.T
     return matrix_a, matrix_b
@@ -34,8 +25,6 @@ def generate_random(n, dtype=torch.float32):
     matrix_b = torch.randn(n, n, dtype=dtype)
     return matrix_a, matrix_b
 
-
-
 def generate_synthetic_pair(matrix_type, size, noise_level=DEFAULT_NOISE_LEVEL, dtype=torch.float32):
     if matrix_type == "perfect":
         return generate_perfect(size, dtype=dtype)
@@ -43,5 +32,5 @@ def generate_synthetic_pair(matrix_type, size, noise_level=DEFAULT_NOISE_LEVEL, 
         return generate_noisy(size, noise_level=noise_level, dtype=dtype)
     if matrix_type == "random":
         return generate_random(size, dtype=dtype)
-    else:
-        raise ValueError(f"Unknown matrix type: {matrix_type}")
+    msg = f"Unknown matrix type: {matrix_type}"
+    raise ValueError(msg)

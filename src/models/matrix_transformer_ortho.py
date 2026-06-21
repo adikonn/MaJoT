@@ -1,19 +1,8 @@
-"""MatrixTransformerOrtho: MatrixTransformer с гарантированно ортогональным выходом.
-
-Единственное отличие от MatrixTransformer: вместо T = I + δ финальный слой
-строит кососимметричную матрицу и берёт от неё матричную экспоненту:
-
-    raw  = output_proj(x)           # (batch, n, n)
-    skew = raw - raw^T              # кососимметричная => matrix_exp(skew) ∈ O(n)
-    T    = matrix_exp(skew)
-
-При нулевой инициализации output_proj получаем skew = 0, matrix_exp(0) = I —
-тот же безопасный старт, что и у базовой модели.
-"""
+"""MatrixTransformerOrtho: MatrixTransformer с гарантированно ортогональным выходом."""
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .base import Triangularizer
 
@@ -29,7 +18,7 @@ class MatrixTransformerOrtho(nn.Module, Triangularizer):
         max_n: int = 32,
         dropout: float = 0.0,
         ffn_mult: int = 4,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.max_n = max_n
@@ -54,7 +43,6 @@ class MatrixTransformerOrtho(nn.Module, Triangularizer):
         nn.init.zeros_(self.output_proj.bias)
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-        """A, B: (batch, n, n) or (n, n). Returns orthogonal T of the same batch shape."""
         squeeze = False
         if A.dim() == 2:
             A = A.unsqueeze(0)
@@ -63,7 +51,8 @@ class MatrixTransformerOrtho(nn.Module, Triangularizer):
 
         batch, n, _ = A.shape
         if n > self.max_n:
-            raise ValueError(f"n={n} exceeds configured max_n={self.max_n}")
+            msg = f"n={n} exceeds configured max_n={self.max_n}"
+            raise ValueError(msg)
 
         device = A.device
 

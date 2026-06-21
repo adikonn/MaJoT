@@ -1,19 +1,8 @@
-"""IterativeRefinementOrtho: итеративное уточнение с ортогональными шагами.
-
-Отличие от IterativeRefinementTriangularizer: на каждом шаге поправка
-применяется как правый множитель из O(n), а не как аддитивный сдвиг:
-
-    raw   = delta_head(h_fused)          # (batch, n, n)
-    skew  = raw - raw^T                  # кососимметричная
-    R_k   = matrix_exp(alpha_k * skew)   # R_k ∈ O(n)
-    T     = T @ R_k                       # T остаётся ортогональной на каждом шаге
-
-При нулевой инициализации delta_head: skew = 0, R_k = I, T не меняется.
-"""
+"""IterativeRefinementOrtho: итеративное уточнение с ортогональными шагами."""
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .base import Triangularizer
 
@@ -31,7 +20,7 @@ class IterativeRefinementOrtho(nn.Module, Triangularizer):
         max_n: int = 32,
         dropout: float = 0.0,
         ffn_mult: int = 2,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_steps = num_steps
@@ -68,11 +57,10 @@ class IterativeRefinementOrtho(nn.Module, Triangularizer):
         nn.init.zeros_(self.delta_head.weight)
         nn.init.zeros_(self.delta_head.bias)
 
-        # log-параметризация для позитивности; init ≈ 0.135
         self.log_step_sizes = nn.Parameter(torch.full((num_steps,), -2.0))
 
     def _compute_rotation(
-        self, T: torch.Tensor, A: torch.Tensor, B: torch.Tensor
+        self, T: torch.Tensor, A: torch.Tensor, B: torch.Tensor,
     ) -> torch.Tensor:
         """Compute one orthogonal correction R ∈ O(n) from current T and residuals."""
         batch, n, _ = T.shape
@@ -92,18 +80,17 @@ class IterativeRefinementOrtho(nn.Module, Triangularizer):
         h = h + self.col_embed(j_idx).view(1, 1, n, self.hidden_dim)
 
         h_row = self.row_encoder(
-            h.reshape(batch * n, n, self.hidden_dim)
+            h.reshape(batch * n, n, self.hidden_dim),
         ).reshape(batch, n, n, self.hidden_dim)
 
         h_col = self.col_encoder(
-            h.permute(0, 2, 1, 3).reshape(batch * n, n, self.hidden_dim)
+            h.permute(0, 2, 1, 3).reshape(batch * n, n, self.hidden_dim),
         ).reshape(batch, n, n, self.hidden_dim).permute(0, 2, 1, 3)
 
         h_fused = (h_row + h_col) * 0.5
-        raw = self.delta_head(h_fused).squeeze(-1)  # (batch, n, n)
+        raw = self.delta_head(h_fused).squeeze(-1)
 
-        skew = raw - raw.transpose(-1, -2)
-        return skew
+        return raw - raw.transpose(-1, -2)
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
         """A, B: (batch, n, n) or (n, n). Returns orthogonal T of the same batch shape."""
@@ -115,14 +102,14 @@ class IterativeRefinementOrtho(nn.Module, Triangularizer):
 
         batch, n, _ = A.shape
         if n > self.max_n:
-            raise ValueError(f"n={n} exceeds configured max_n={self.max_n}")
+            msg = f"n={n} exceeds configured max_n={self.max_n}"
+            raise ValueError(msg)
 
         T = torch.eye(n, dtype=A.dtype, device=A.device).unsqueeze(0).expand(batch, -1, -1).clone()
         step_sizes = torch.exp(self.log_step_sizes)
 
         for k in range(self.num_steps):
             skew = self._compute_rotation(T, A, B)
-            # Каждый шаг — умножение на ортогональную матрицу из O(n)
             R_k = torch.linalg.matrix_exp(step_sizes[k] * skew)
             T = T @ R_k
 

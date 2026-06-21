@@ -3,7 +3,7 @@ import torch
 from src.dataset.generate_data import MATRIX_TYPES, generate_synthetic_pair
 
 
-def test_generate_synthetic_pair_supports_size_for_all_types():
+def test_generate_synthetic_pair_supports_size_for_all_types() -> None:
     size = 7
     for matrix_type in MATRIX_TYPES:
         a, b = generate_synthetic_pair(matrix_type, size=size)
@@ -11,7 +11,7 @@ def test_generate_synthetic_pair_supports_size_for_all_types():
         assert b.shape == (size, size)
 
 
-def test_generate_synthetic_pair_supports_noise_parameter():
+def test_generate_synthetic_pair_supports_noise_parameter() -> None:
     torch.manual_seed(123)
     perfect_a, perfect_b = generate_synthetic_pair("perfect", size=5)
 

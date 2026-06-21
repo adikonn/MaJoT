@@ -21,17 +21,13 @@ from __future__ import annotations
 
 import pytest
 import torch
+from conftest import TEST_NS, perfect_pair, random_pair
 
 from src.training.losses import total_loss
 
-from conftest import TEST_NS, perfect_pair, random_pair
 
-
-# ===========================================================================
-# Forward pass — interface contract
-# ===========================================================================
 @pytest.mark.parametrize("n", TEST_NS)
-def test_forward_unbatched_shape(model, n):
+def test_forward_unbatched_shape(model, n) -> None:
     A, B = random_pair(n)
     T = model(A, B)
     assert T.shape == (n, n), f"Expected ({n},{n}), got {tuple(T.shape)}"
@@ -39,7 +35,7 @@ def test_forward_unbatched_shape(model, n):
 
 @pytest.mark.parametrize("n", TEST_NS)
 @pytest.mark.parametrize("batch", [1, 4])
-def test_forward_batched_shape(model, n, batch):
+def test_forward_batched_shape(model, n, batch) -> None:
     A = torch.randn(batch, n, n)
     B = torch.randn(batch, n, n)
     T = model(A, B)
@@ -47,7 +43,7 @@ def test_forward_batched_shape(model, n, batch):
 
 
 @pytest.mark.parametrize("n", TEST_NS)
-def test_forward_preserves_device(model, n):
+def test_forward_preserves_device(model, n) -> None:
     A, B = random_pair(n, device="cpu")
     T = model(A, B)
     assert T.device.type == A.device.type, (
@@ -56,21 +52,21 @@ def test_forward_preserves_device(model, n):
 
 
 @pytest.mark.parametrize("n", TEST_NS)
-def test_forward_returns_float(model, n):
+def test_forward_returns_float(model, n) -> None:
     A, B = random_pair(n, dtype=torch.float32)
     T = model(A, B)
     assert T.dtype.is_floating_point, f"Output dtype {T.dtype} is not floating point"
 
 
 @pytest.mark.parametrize("n", TEST_NS)
-def test_forward_no_nan_or_inf(model, n):
+def test_forward_no_nan_or_inf(model, n) -> None:
     A, B = random_pair(n)
     T = model(A, B)
     assert torch.isfinite(T).all(), "Model output contains NaN or Inf"
 
 
 @pytest.mark.parametrize("n", TEST_NS)
-def test_find_transform_unbatched(model, n):
+def test_find_transform_unbatched(model, n) -> None:
     """Triangularizer interface: find_transform takes single (n, n) tensors."""
     assert hasattr(model, "find_transform"), (
         "Model must implement the Triangularizer interface (find_transform method)"
@@ -83,7 +79,7 @@ def test_find_transform_unbatched(model, n):
 
 
 @pytest.mark.parametrize("n", TEST_NS)
-def test_output_is_invertible(model, n):
+def test_output_is_invertible(model, n) -> None:
     """An invertible T is the whole point of the task. Untrained models may still
     produce a non-singular T (e.g. residual-identity models start at T=I); if your
     fresh model fails this test, the optimization will likely collapse.
@@ -95,10 +91,7 @@ def test_output_is_invertible(model, n):
     assert det.abs() > 1e-6, f"T appears singular at init: |det| = {det.abs():.2e}"
 
 
-# ===========================================================================
-# Gradient flow — required for training
-# ===========================================================================
-def test_gradient_flows_to_all_parameters(model):
+def test_gradient_flows_to_all_parameters(model) -> None:
     """Every learnable parameter must receive a gradient from total_loss."""
     if not any(p.requires_grad for p in model.parameters()):
         pytest.skip("Model has no trainable parameters")
@@ -109,12 +102,11 @@ def test_gradient_flows_to_all_parameters(model):
     loss, _ = total_loss(T, A, B)
     loss.backward()
 
-    missing = [name for name, p in model.named_parameters()
-               if p.requires_grad and p.grad is None]
+    missing = [name for name, p in model.named_parameters() if p.requires_grad and p.grad is None]
     assert not missing, f"Parameters with no gradient: {missing}"
 
 
-def test_loss_backward_does_not_crash(model):
+def test_loss_backward_does_not_crash(model) -> None:
     """Smoke test for the full forward-loss-backward chain."""
     if not any(p.requires_grad for p in model.parameters()):
         pytest.skip("Model has no trainable parameters")
@@ -128,11 +120,8 @@ def test_loss_backward_does_not_crash(model):
     loss.backward()
 
 
-# ===========================================================================
-# Trainability — the model can actually optimize the objective
-# ===========================================================================
 @pytest.mark.slow
-def test_loss_decreases_on_one_sample(model):
+def test_loss_decreases_on_one_sample(model) -> None:
     """100 steps on a single sample should reduce the loss by ≥ 30%.
 
     This is a sanity check that the model is *trainable*, not that it's good.
@@ -167,7 +156,7 @@ def test_loss_decreases_on_one_sample(model):
 
 
 @pytest.mark.slow
-def test_can_overfit_perfect_pair(model):
+def test_can_overfit_perfect_pair(model) -> None:
     """200 steps on a single 'perfect' sample — loss should reach near-zero.
 
     The perfect case has a closed-form ground-truth Q, so any reasonable model
@@ -191,22 +180,17 @@ def test_can_overfit_perfect_pair(model):
         optimizer.step()
 
     with torch.no_grad():
-        loss_final, components = total_loss(model(A, B), A, B, lambda_orth=0.1)
-    # We are lenient here: not every architecture nails it, but a healthy one
-    # should at least reach a small triangularization loss.
+        _loss_final, components = total_loss(model(A, B), A, B, lambda_orth=0.1)
     assert components["loss_tri"] < 0.1, (
         f"Failed to overfit a single perfect sample: "
         f"loss_tri = {components['loss_tri']:.4f}"
     )
 
 
-# ===========================================================================
-# CUDA support (skipped automatically if no GPU)
-# ===========================================================================
 @pytest.mark.cuda
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
 @pytest.mark.parametrize("n", TEST_NS)
-def test_forward_on_cuda(model, n):
+def test_forward_on_cuda(model, n) -> None:
     model = model.cuda()
     A, B = random_pair(n, device="cuda")
     T = model(A, B)
@@ -217,17 +201,14 @@ def test_forward_on_cuda(model, n):
 
 @pytest.mark.cuda
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_find_transform_on_cuda(model):
+def test_find_transform_on_cuda(model) -> None:
     model = model.cuda()
     A, B = random_pair(5, device="cuda")
     T = model.find_transform(A, B)
     assert T.is_cuda
 
 
-# ===========================================================================
-# Registry consistency
-# ===========================================================================
-def test_every_registered_model_is_buildable():
+def test_every_registered_model_is_buildable() -> None:
     """Every model in src.models._REGISTRY should be constructible via build_model.
 
     This is a smoke test for the production registry: if a contributor adds a
@@ -236,21 +217,20 @@ def test_every_registered_model_is_buildable():
     from src.models import _REGISTRY, build_model
 
     for name in _REGISTRY:
-        # Try with empty config — any required hyperparameters will raise here.
         try:
             build_model({"name": name})
         except TypeError:
-            # Constructor needs args — that's fine, just check it's a real class.
             assert callable(_REGISTRY[name]), f"Registry entry {name} is not callable"
 
 
-def test_test_registry_subset_of_prod_registry():
+def test_test_registry_subset_of_prod_registry() -> None:
     """Every model factory in conftest.MODEL_FACTORIES should correspond to a
     name registered in src.models._REGISTRY. Otherwise tests pass for a model
     that wouldn't actually be picked up by build_model / train.py.
     """
-    from src.models import _REGISTRY
     from conftest import MODEL_FACTORIES
+
+    from src.models import _REGISTRY
 
     test_names = {name for name, _ in MODEL_FACTORIES}
     prod_names = set(_REGISTRY.keys())

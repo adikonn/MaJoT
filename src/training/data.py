@@ -8,14 +8,15 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 import torch
 from torch.utils.data import Dataset
 
-# These imports point to the existing dataset module the project already has.
-from src.dataset.generate_data import generate_perfect, generate_noisy, generate_random
+from src.dataset.generate_data import generate_noisy, generate_perfect, generate_random
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _GENERATORS = {
     "perfect": lambda n, **kw: generate_perfect(n),
@@ -27,7 +28,7 @@ _GENERATORS = {
 class MatrixDataset(Dataset):
     """A flat list of {n, type, A, B} dicts."""
 
-    def __init__(self, samples: list[dict[str, Any]]):
+    def __init__(self, samples: list[dict[str, Any]]) -> None:
         self.samples = samples
 
     def __len__(self) -> int:
@@ -94,7 +95,7 @@ class GroupedByNBatchSampler:
         shuffle: bool = True,
         drop_last: bool = False,
         seed: int | None = None,
-    ):
+    ) -> None:
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last

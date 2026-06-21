@@ -1,19 +1,10 @@
-"""DualStreamRowColOrtho: DualStreamRowCol с гарантированно ортогональным выходом.
-
-Вместо T = I + δ применяем:
-
-    raw  = delta_head(grid)         # (batch, n, n)
-    skew = raw - raw^T              # кососимметричная
-    T    = matrix_exp(skew)         # T ∈ O(n) гарантированно
-
-При нулевой инициализации delta_head: skew = 0, T = I — тот же старт.
-"""
+"""DualStreamRowColOrtho: DualStreamRowCol с гарантированно ортогональным выходом."""
 from __future__ import annotations
 
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .base import Triangularizer
 
@@ -48,7 +39,7 @@ class DualStreamRowColOrtho(nn.Module, Triangularizer):
         max_n: int = 32,
         dropout: float = 0.0,
         ffn_mult: int = 4,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.max_n = max_n
@@ -63,7 +54,7 @@ class DualStreamRowColOrtho(nn.Module, Triangularizer):
         self.col_encoder = nn.TransformerEncoder(col_layer, num_layers=num_layers)
 
         self.cross_attn = nn.MultiheadAttention(
-            hidden_dim, num_heads, dropout=dropout, batch_first=True
+            hidden_dim, num_heads, dropout=dropout, batch_first=True,
         )
         self.cross_norm = nn.LayerNorm(hidden_dim)
 
@@ -83,9 +74,10 @@ class DualStreamRowColOrtho(nn.Module, Triangularizer):
         return (seq * weights.unsqueeze(-1)).sum(dim=1)
 
     def _positional_features(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-        batch, n, _ = A.shape
+        _batch, n, _ = A.shape
         if n > self.max_n:
-            raise ValueError(f"n={n} превышает max_n={self.max_n}")
+            msg = f"n={n} превышает max_n={self.max_n}"
+            raise ValueError(msg)
 
         device = A.device
         pair = torch.stack([A, B], dim=-1)
@@ -94,8 +86,7 @@ class DualStreamRowColOrtho(nn.Module, Triangularizer):
         i_idx = torch.arange(n, device=device)
         j_idx = torch.arange(n, device=device)
         h = h + self.row_embed(i_idx).unsqueeze(0).unsqueeze(2)
-        h = h + self.col_embed(j_idx).unsqueeze(0).unsqueeze(1)
-        return h
+        return h + self.col_embed(j_idx).unsqueeze(0).unsqueeze(1)
 
     def _encode_rows(self, h: torch.Tensor) -> torch.Tensor:
         batch, n, _, hidden = h.shape
@@ -112,7 +103,6 @@ class DualStreamRowColOrtho(nn.Module, Triangularizer):
         return pooled.reshape(batch, n, hidden)
 
     def forward(self, A: torch.Tensor, B: torch.Tensor) -> torch.Tensor:
-        """A, B: (batch, n, n) или (n, n). Возвращает ортогональную T той же формы."""
         squeeze = False
         if A.dim() == 2:
             A = A.unsqueeze(0)

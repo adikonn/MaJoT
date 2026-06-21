@@ -15,20 +15,20 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 import yaml
 from torch.utils.data import DataLoader
 
-# Make the project root importable regardless of where the script is invoked from.
+import wandb
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.models import build_model  # noqa: E402
-from src.training.data import (  # noqa: E402
+from src.models import build_model
+from src.training.data import (
     GroupedByNBatchSampler,
     build_datasets,
     collate_by_n,
 )
-from src.training.trainer import train  # noqa: E402
+from src.training.trainer import train
 
 
 def set_seed(seed: int) -> None:
@@ -41,9 +41,9 @@ def apply_overrides(config: dict, overrides: list[str]) -> dict:
     """Apply a list of `dotted.key=value` overrides to a nested config dict."""
     for kv in overrides:
         if "=" not in kv:
-            raise ValueError(f"Override '{kv}' is not in key=value form")
+            msg = f"Override '{kv}' is not in key=value form"
+            raise ValueError(msg)
         key, raw_value = kv.split("=", 1)
-        # Try to parse the value as YAML (so true/false/numbers/lists come out typed).
         try:
             value = yaml.safe_load(raw_value)
         except yaml.YAMLError:
@@ -52,7 +52,8 @@ def apply_overrides(config: dict, overrides: list[str]) -> dict:
         d = config
         for k in keys[:-1]:
             if k not in d:
-                raise KeyError(f"Override key {key} hits missing intermediate '{k}'")
+                msg = f"Override key {key} hits missing intermediate '{k}'"
+                raise KeyError(msg)
             d = d[k]
         d[keys[-1]] = value
     return config
@@ -76,31 +77,28 @@ def main() -> None:
     set_seed(config["seed"])
 
     device = torch.device(
-        config.get("device", "cuda") if torch.cuda.is_available() else "cpu"
+        config.get("device", "cuda") if torch.cuda.is_available() else "cpu",
     )
-    print(f"Using device: {device}")
 
     train_ds, val_ds = build_datasets(config["data"])
-    print(f"Train samples: {len(train_ds)}, val samples: {len(val_ds)}")
 
     train_loader = DataLoader(
         train_ds,
         batch_sampler=GroupedByNBatchSampler(
-            train_ds, config["data"]["batch_size"], shuffle=True, seed=config["seed"]
+            train_ds, config["data"]["batch_size"], shuffle=True, seed=config["seed"],
         ),
         collate_fn=collate_by_n,
     )
     val_loader = DataLoader(
         val_ds,
         batch_sampler=GroupedByNBatchSampler(
-            val_ds, config["data"]["batch_size"], shuffle=False
+            val_ds, config["data"]["batch_size"], shuffle=False,
         ),
         collate_fn=collate_by_n,
     )
 
     model = build_model(config["model"]).to(device)
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"Model: {config['model']['name']} | {n_params:,} parameters")
 
     wandb.init(
         project=config["wandb"]["project"],

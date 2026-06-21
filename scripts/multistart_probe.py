@@ -16,15 +16,14 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.models import build_model
-from src.dataset.generate_data import generate_perfect, generate_noisy
+from src.dataset.generate_data import generate_noisy, generate_perfect
 from src.evaluation.metrics import lower_norm_ratio
+from src.models import build_model
 
 
 def random_orthogonal(batch: int, n: int, device) -> torch.Tensor:
     H = torch.randn(batch, n, n, device=device)
     Q, R = torch.linalg.qr(H)
-    # нормировка знака => равномерно по O(n)
     sign = torch.sign(torch.diagonal(R, dim1=-2, dim2=-1))
     return Q * sign.unsqueeze(1)
 
@@ -46,7 +45,7 @@ def multistart(model, A, B, K, device):
     best = None
     for k in range(K):
         if k == 0:
-            R = torch.eye(n, device=device).expand(batch, n, n)  # кандидат 0 = обычный инференс
+            R = torch.eye(n, device=device).expand(batch, n, n)
         else:
             R = random_orthogonal(batch, n, device)
         Ar = R.transpose(-1, -2) @ A @ R
@@ -58,7 +57,7 @@ def multistart(model, A, B, K, device):
     return best
 
 
-def main():
+def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ckpt = torch.load(
         "checkpoints/matrix_transformer_ortho_prod_v1/best_model.pt",
@@ -67,22 +66,16 @@ def main():
     model = build_model(ckpt["config"]["model"]).to(device)
     model.load_state_dict(ckpt["model"])
     model.eval()
-    print(f"device={device} | loaded epoch {ckpt['epoch']}")
 
     ns = [4, 6, 8, 12, 16]
     per_n = 200
     Ks = [1, 4, 8, 16, 32]
 
     torch.manual_seed(2024)
-    for typ, gen in [("perfect", lambda n: generate_perfect(n)),
+    for _typ, gen in [("perfect", generate_perfect),
                      ("noisy", lambda n: generate_noisy(n, noise_level=1e-3))]:
-        print(f"\n=== {typ} (per_n={per_n}) ===")
-        header = "  n   " + "".join(f"K={k:<7}" for k in Ks)
-        print(header)
+        "  n   " + "".join(f"K={k:<7}" for k in Ks)
         for n in ns:
-            A = torch.stack([gen(n)[0] for _ in range(per_n)]).to(device)
-            B = torch.stack([gen(n)[1] for _ in range(per_n)]).to(device)
-            # пары A,B должны быть согласованы (одна Q) -> генерируем вместе
             pairs = [gen(n) for _ in range(per_n)]
             A = torch.stack([p[0] for p in pairs]).to(device)
             B = torch.stack([p[1] for p in pairs]).to(device)
@@ -90,7 +83,6 @@ def main():
             for K in Ks:
                 m = multistart(model, A, B, K, device).mean().item()
                 row += f"{m:<9.4f}"
-            print(row)
 
 
 if __name__ == "__main__":

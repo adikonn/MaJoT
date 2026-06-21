@@ -17,6 +17,7 @@ Examples:
         --config configs/matrix_transformer.yaml \
         --baseline src.baseline.qz:solve \
         --output results/qz.csv
+
 """
 from __future__ import annotations
 
@@ -27,22 +28,23 @@ import statistics
 import sys
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import torch
-import wandb
 import yaml
+
+import wandb
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.evaluation.metrics import evaluate_transform  # noqa: E402
-from src.models import build_model  # noqa: E402
-from src.training.data import build_test_dataset  # noqa: E402
+from src.evaluation.metrics import evaluate_transform
+from src.models import build_model
+from src.training.data import build_test_dataset
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
-# ---------------------------------------------------------------------------
-# Predictor loading
-# ---------------------------------------------------------------------------
 def load_model_predictor(config: dict, checkpoint_path: str, device: torch.device) -> tuple[Callable, str]:
     model = build_model(config["model"]).to(device)
     ckpt = torch.load(checkpoint_path, map_location=device)
@@ -61,16 +63,14 @@ def load_model_predictor(config: dict, checkpoint_path: str, device: torch.devic
 def load_baseline_predictor(spec: str) -> tuple[Callable, str]:
     """Load `module:callable` and return it together with a display name."""
     if ":" not in spec:
-        raise ValueError(f"Baseline spec must be 'module:callable', got {spec!r}")
+        msg = f"Baseline spec must be 'module:callable', got {spec!r}"
+        raise ValueError(msg)
     module_path, fn_name = spec.split(":")
     module = importlib.import_module(module_path)
     fn = getattr(module, fn_name)
     return fn, f"{module_path}.{fn_name}"
 
 
-# ---------------------------------------------------------------------------
-# Benchmark loop
-# ---------------------------------------------------------------------------
 def benchmark(
     predictor: Callable,
     test_data: list[dict[str, Any]],
@@ -78,7 +78,6 @@ def benchmark(
     warmup: int = 5,
     runs_per_sample: int = 3,
 ) -> list[dict[str, Any]]:
-    # Warmup so the first measured call isn't biased by lazy initialization.
     for sample in test_data[:warmup]:
         A = sample["A"].to(device)
         B = sample["B"].to(device)
@@ -102,7 +101,6 @@ def benchmark(
                 torch.cuda.synchronize()
             times.append(time.perf_counter() - t0)
 
-        # Ensure T is on the same device/dtype as A/B for the metric call.
         if not torch.is_tensor(T):
             T = torch.as_tensor(T, device=A.device, dtype=A.dtype)
         elif T.device != A.device:
@@ -116,9 +114,6 @@ def benchmark(
     return rows
 
 
-# ---------------------------------------------------------------------------
-# Reporting
-# ---------------------------------------------------------------------------
 NUMERIC_KEYS = ["lower_ratio_A", "lower_ratio_B", "orth_residual", "T_cond", "time_seconds"]
 
 
@@ -144,18 +139,12 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
 
 
 def print_summary(predictor_name: str, summary: dict[str, dict[str, float]]) -> None:
-    print(f"\n=== Benchmark: {predictor_name} ===")
-    for group_name, stats in summary.items():
-        print(f"  [{group_name}] count={int(stats['count'])}")
-        for k, v in stats.items():
+    for stats in summary.values():
+        for k in stats:
             if k == "count":
                 continue
-            print(f"    {k:24s} {v:.6f}")
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True, help="Config used for the data + (optionally) model arch")
@@ -175,7 +164,6 @@ def main() -> None:
         config = yaml.safe_load(f)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
 
     if args.checkpoint:
         predictor, name = load_model_predictor(config, args.checkpoint, device)
@@ -183,7 +171,6 @@ def main() -> None:
         predictor, name = load_baseline_predictor(args.baseline)
 
     test_data = build_test_dataset(config["data"])
-    print(f"Test set size: {len(test_data)}")
 
     rows = benchmark(predictor, test_data, device=device)
     summary = summarize(rows)
@@ -196,7 +183,6 @@ def main() -> None:
             writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             writer.writeheader()
             writer.writerows(rows)
-        print(f"\nPer-sample results saved to {out_path}")
 
     if args.wandb:
         wandb.init(

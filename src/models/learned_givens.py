@@ -1,21 +1,11 @@
-"""LearnedGivens: learn a joint triangularizer via a learned product of Givens rotations.
-
-Idea:
-    Predict a sequence of elementary Givens rotations (i,j,theta) from the input
-    matrices (A,B) and compose them into an orthogonal transform T.
-Why it fits:
-    Orthogonality guarantees invertibility and matches the perfect case where the
-    ground-truth transform is an orthogonal Q. Variable n is handled via max_n.
-Assumptions:
-    Works for n <= max_n; we use only the top-left n×n part at runtime.
-"""
+"""LearnedGivens: learn a joint triangularizer via a learned product of Givens rotations."""
 
 from __future__ import annotations
 
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from .base import Triangularizer
 
@@ -43,13 +33,12 @@ class LearnedGivens(nn.Module, Triangularizer):
         num_rotations: int = 64,
         dropout: float = 0.0,
         ffn_mult: int = 4,
-    ):
+    ) -> None:
         super().__init__()
         self.hidden_dim = hidden_dim
         self.max_n = max_n
         self.num_rotations = num_rotations
 
-        # Token per matrix entry: (A_ij, B_ij)
         self.input_proj = nn.Linear(2, hidden_dim)
         self.row_embed = nn.Embedding(max_n, hidden_dim)
         self.col_embed = nn.Embedding(max_n, hidden_dim)
@@ -65,19 +54,16 @@ class LearnedGivens(nn.Module, Triangularizer):
         )
         self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
 
-        # Pool and predict parameters for K rotations.
         self.pool = nn.Sequential(
             nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
         )
 
-        # Indices in [0, max_n-1], theta in R (we wrap via tanh*π).
         self.head_i = nn.Linear(hidden_dim, num_rotations)
         self.head_j = nn.Linear(hidden_dim, num_rotations)
         self.head_theta = nn.Linear(hidden_dim, num_rotations)
 
-        # Small init so initial T is close to identity -> stable + invertible.
         nn.init.zeros_(self.head_theta.weight)
         nn.init.zeros_(self.head_theta.bias)
 
@@ -85,7 +71,8 @@ class LearnedGivens(nn.Module, Triangularizer):
         """Return a pooled representation (batch, hidden_dim)."""
         batch, n, _ = A.shape
         if n > self.max_n:
-            raise ValueError(f"n={n} exceeds configured max_n={self.max_n}")
+            msg = f"n={n} exceeds configured max_n={self.max_n}"
+            raise ValueError(msg)
 
         device = A.device
         x = torch.stack([A, B], dim=-1).reshape(batch, n * n, 2)
@@ -97,16 +84,11 @@ class LearnedGivens(nn.Module, Triangularizer):
         x = x + pos.unsqueeze(0)
 
         x = self.encoder(x)
-        x = x.mean(dim=1)  # simple mean pool over tokens
+        x = x.mean(dim=1)
         return self.pool(x)
 
     @staticmethod
     def _apply_givens_left(T: torch.Tensor, i: int, j: int, c: torch.Tensor, s: torch.Tensor) -> torch.Tensor:
-        """Left-multiply by G(i,j,theta): rotate rows i and j of T.
-
-        T: (batch, n, n)
-        c,s: (batch,)
-        """
         Ti = T[:, i, :].clone()
         Tj = T[:, j, :].clone()
         new_Ti = c[:, None] * Ti - s[:, None] * Tj
@@ -119,27 +101,18 @@ class LearnedGivens(nn.Module, Triangularizer):
         A, B, squeeze = _as_batched(A, B)
         batch, n, _ = A.shape
 
-        h = self._encode(A, B)  # (batch, hidden)
+        h = self._encode(A, B)
 
-        # The pair schedule below is fixed, so the pair heads must still contribute
-        # differentiably to the constructed transform; otherwise their parameters
-        # receive no gradients. We therefore use them to gate the per-step rotation
-        # magnitudes while keeping the deterministic schedule unchanged.
-        i_logits = self.head_i(h)  # (batch, K)
-        j_logits = self.head_j(h)  # (batch, K)
-        theta_raw = self.head_theta(h)  # (batch, K)
+        i_logits = self.head_i(h)
+        j_logits = self.head_j(h)
+        theta_raw = self.head_theta(h)
 
-        # Convert theta to a bounded range for stability, then modulate each step by
-        # a differentiable gate derived from both pair heads so all heads influence T.
-        theta = math.pi * torch.tanh(theta_raw)  # (batch, K)
-        pair_gate = torch.sigmoid(i_logits + j_logits)  # (batch, K)
+        theta = math.pi * torch.tanh(theta_raw)
+        pair_gate = torch.sigmoid(i_logits + j_logits)
         theta = theta * pair_gate
 
-        # Start from identity and apply K rotations.
         T = torch.eye(n, device=A.device, dtype=A.dtype).unsqueeze(0).expand(batch, n, n).clone()
 
-        # Pick per-rotation pair deterministically from pooled state.
-        # Pair schedule: (p, q) cycles over upper-triangular pairs.
         pairs = []
         for p in range(n):
             for q in range(p + 1, n):

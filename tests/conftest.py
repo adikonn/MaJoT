@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Callable
 
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from typing import TYPE_CHECKING
 
 from src.models.cross_attn_triangularizer import CrossAttnTriangularizer
 from src.models.dual_stream_rowcol import DualStreamRowCol
@@ -36,9 +37,10 @@ from src.models.iterative_refinement_ortho import IterativeRefinementOrtho
 from src.models.learned_givens import LearnedGivens
 from src.models.matrix_transformer_ortho import MatrixTransformerOrtho
 
-# ---------------------------------------------------------------------------
-# Model factories
-# ---------------------------------------------------------------------------
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
 def _factory_dual_stream_rowcol() -> nn.Module:
     return DualStreamRowCol(hidden_dim=32, num_heads=2, num_layers=2, max_n=16)
 
@@ -65,8 +67,9 @@ def _factory_equivariant_matrix_net() -> nn.Module:
 
 def _factory_cross_attn_triangularizer() -> nn.Module:
     return CrossAttnTriangularizer(hidden_dim=16, num_heads=2)
+
+
 def _factory_learned_givens() -> nn.Module:
-    # Keep it small for tests.
     return LearnedGivens(hidden_dim=32, num_heads=2, num_layers=2, max_n=16, num_rotations=32)
 
 
@@ -81,14 +84,9 @@ MODEL_FACTORIES: list[tuple[str, Callable[[], nn.Module]]] = [
     ("learned_givens", _factory_learned_givens),
 ]
 
-# Matrix sizes used by parametrized universal tests. Any registered model must
-# at minimum support these. Adjust if you intentionally want larger coverage.
 TEST_NS: list[int] = [4, 8]
 
 
-# ---------------------------------------------------------------------------
-# Pytest fixtures
-# ---------------------------------------------------------------------------
 @pytest.fixture(
     params=[factory for _, factory in MODEL_FACTORIES],
     ids=[name for name, _ in MODEL_FACTORIES],
@@ -107,9 +105,6 @@ def model_name(request) -> str:
     return request.node.callspec.id if hasattr(request.node, "callspec") else "unknown"
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers used across multiple test files
-# ---------------------------------------------------------------------------
 def random_pair(n: int, dtype=torch.float32, device: str = "cpu"):
     """Two unrelated random matrices."""
     return (
@@ -125,7 +120,7 @@ def perfect_pair(n: int, dtype=torch.float64, device: str = "cpu"):
     """
     H = torch.randn(n, n, dtype=dtype, device=device)
     Q, R = torch.linalg.qr(H)
-    Q = Q * torch.sign(torch.diag(R))            # Mezzadri: uniform on O(n)
+    Q = Q * torch.sign(torch.diag(R))
     T_A = torch.triu(torch.randn(n, n, dtype=dtype, device=device))
     T_B = torch.triu(torch.randn(n, n, dtype=dtype, device=device))
     A = Q @ T_A @ Q.T
@@ -133,9 +128,6 @@ def perfect_pair(n: int, dtype=torch.float64, device: str = "cpu"):
     return A, B, Q
 
 
-# ---------------------------------------------------------------------------
-# Pytest markers
-# ---------------------------------------------------------------------------
-def pytest_configure(config):
+def pytest_configure(config) -> None:
     config.addinivalue_line("markers", "slow: heavier integration tests (overfit, training)")
     config.addinivalue_line("markers", "cuda: requires CUDA device")
